@@ -1,7 +1,7 @@
 from electron import settings
 
 
-def hexdigest(obj: str) -> str:
+def hex_digest(obj: str) -> str:
     """
     Get the hexdigest of a string `obj` under the chosen hashing scheme.
 
