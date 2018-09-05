@@ -9,8 +9,8 @@ PORT = 8888
 loop = asyncio.get_event_loop()
 
 # One protocol instance will be created to serve all client requests
-coro = loop.create_server(TCPConnection, LOCAL_ADDRESS, PORT)
-server = loop.run_until_complete(coro)
+coroutine = loop.create_server(TCPConnection, LOCAL_ADDRESS, PORT)
+server = loop.run_until_complete(coroutine)
 
 nodes = ['127.0.0.1']
 
