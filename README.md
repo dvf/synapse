@@ -2,13 +2,13 @@
 
 Rapid RPC Framework for your Python services using Asyncio + [MsgPack](https://msgpack.org/index.html)
 
-## Installation
+# Installation
 
 ```
 $ pip install electron-rpc
 ```
 
-## How does it work?
+# How does it work?
 
 Create a server instance with a single endpoint `sum()` which outputs the sum of two values:
 
@@ -63,3 +63,15 @@ sock.close()
 Received: 
 Result: 3
 ```
+
+# Background Tasks
+
+To create a background task, decorate it with `@app.background(time_in_seconds)`:
+
+```python
+@app.background(3)
+async def some_background_task():
+    print("Running background task every 3 seconds")
+```
+
+Now the task will execute every 3 seconds.
