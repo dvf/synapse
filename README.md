@@ -35,7 +35,9 @@ Registered Endpoints:
 - sum
 ```
 
-Now, call the server over TCP with a MsgPack payload:
+## Calling the endpoint from a client
+
+electron uses MsgPack-RPC, so craft a payload and send it over TCP:
 
 ```python
 import socket
