@@ -13,7 +13,7 @@ $ pip install electron-rpc
 Create a server instance with a single endpoint `sum()` which outputs the sum of two values:
 
 ```python
-from electron.server import Server
+from electron import Server
 
 app = Server()
 
