@@ -11,7 +11,7 @@ from electron.types import Node, build_node_from_peer_name
 
 class Server:
 
-    def __init__(self, address, port):
+    def __init__(self, address="127.0.0.1", port="9999"):
         self.address = address
         self.port = port
         self.endpoint_directory = {}
@@ -64,7 +64,10 @@ class Server:
         """
         server = await asyncio.start_server(self.handle_data, self.address, self.port)
 
-        logger.info(f"Listening on {self.address}:{self.port}")
+        print(f"Listening on {self.address}:{self.port}")
+        print(f"\nRegistered Endpoints:")
+        for endpoint in self.endpoint_directory:
+            print(f"- {endpoint}")
 
         async with server:
             await server.serve_forever()
