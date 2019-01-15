@@ -33,7 +33,7 @@ app.run()
 /  __/ /  __/ /__/ /_/ /  / /_/ / / / /     
 \___/_/\___/\___/\__/_/   \____/_/ /_/      
 
-⚡ electron build v0.0.1-beta                              
+⚡ electron build v0.0.4                              
 
 Listening on 127.0.0.1:9999
 

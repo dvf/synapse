@@ -11,6 +11,7 @@ setuptools.setup(
     author="Daniel van Flymen",
     author_email="vanflymen@gmail.com",
     description="Rapid RPC Framework for your Python services using Asyncio + MsgPack",
+    install_requires=["loguru==0.2.4", "msgpack==0.6.0"],
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/dvf/electron",

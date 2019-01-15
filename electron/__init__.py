@@ -1,4 +1,4 @@
-__version__ = "0.0.2"
+__version__ = "0.0.4"
 __logo__ = f"""
         __          __                      
   ___  / /__  _____/ /__________  ____      
@@ -10,5 +10,6 @@ __logo__ = f"""
 """
 
 from electron.server import Server
+from electron.messages import RemoteProcedureCall
 
-__all__ = ["Server"]
+__all__ = ["Server", "RemoteProcedureCall"]

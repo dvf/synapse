@@ -4,14 +4,14 @@ verify_ssl = true
 name = "pypi"
 
 [dev-packages]
+faker = "*"
 pytest = "*"
 pytest-sugar = "*"
 pytest-cov = "*"
 
 [packages]
-msgpack = "*"
-faker = "*"
 loguru = "*"
+msgpack = "*"
 
 [requires]
 python_version = "3.7"
