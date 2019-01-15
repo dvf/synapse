@@ -2,6 +2,8 @@
 
 Rapid RPC Framework for your Python services using Asyncio + [MsgPack](https://msgpack.org/index.html)
 
+Requirements: Python 3.7+
+
 # Installation
 
 ```
