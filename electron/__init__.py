@@ -8,3 +8,7 @@ __logo__ = f"""
 
 ⚡ electron build v{__version__}                              
 """
+
+from electron.server import Server
+
+__all__ = ["Server"]
