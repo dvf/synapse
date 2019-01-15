@@ -1,6 +1,6 @@
-# ⚡️electron
+<img src="https://user-images.githubusercontent.com/1169974/51157905-f990a500-184f-11e9-95e2-9413c81ec4a5.png" width=500>
 
-Rapid RPC Framework for building Python 3.7+ services using Asyncio + [MsgPack](https://msgpack.org/index.html)
+A rapid RPC Framework for building Python 3.7+ services using Asyncio + [MsgPack](https://msgpack.org/index.html)
 
 # Installation
 
