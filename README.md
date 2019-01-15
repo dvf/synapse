@@ -2,6 +2,12 @@
 
 Rapid RPC Framework for your Python services using Asyncio + [MsgPack](https://msgpack.org/index.html)
 
+## Installation
+
+```
+$ pip install electron-rpc
+```
+
 ## How does it work?
 
 Create a server instance with a single endpoint `sum()` which outputs the sum of two values:
