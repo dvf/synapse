@@ -1,2 +1,2 @@
 # electron
-P2P RPC Framework for Python
+electron RPC Framework for Python
