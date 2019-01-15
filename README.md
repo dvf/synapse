@@ -48,7 +48,7 @@ electron uses MsgPack-RPC, so craft a payload and send it over TCP:
 ```python
 import socket
 
-from electron.messages import RemoteProcedureCall
+from electron import RemoteProcedureCall
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
