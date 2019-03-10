@@ -5,55 +5,79 @@ A rapid RPC Framework for building Python 3.7+ services using Asyncio + [MsgPack
 # Installation
 
 ```
-$ pip install electron-rpc
+pip install synapse-p2p
 ```
 
 # How does it work?
 
-Create a server instance with a single endpoint `sum()` which outputs the sum of two values:
+Synapse creates and discovers p2p nodes on common namespace, which can be whatever you choose. In the below example, we create a node on `cryptocurrencies.bitcoin` in the hope that we'd eventually implement a full Bitcoin node.
+
+This example creates two public endpoints/functions (`get_peers`, `broadcast_message`) which anyone on the network may call. There's also a background task `do_stuff` which is a task running in the background.
 
 ```python
-from electron import Server
+from synapse.server import Server
 
-app = Server()
+app = Server(namespace="cryptocurrencies.bitcoin")
 
 
-@app.endpoint("sum")
-async def sum(a, b, **kwargs):
-    return f"Result: {a + b}"
+@app.background(seconds=5)
+async def do_stuff():
+    print("I am doing stuff in the background")
+
+
+@app.endpoint("get_nodes")
+async def get_nodes(**kwargs):
+    return f"Here are the nodes I know about..."
+
+
+@app.endpoint("broadcast_message")
+async def broadcast_message(message, **kwargs):
+    return f"Sending your message to known nodes: {message}"
 
 
 app.run()
+
 ```
 
 ```
-        __          __                      
-  ___  / /__  _____/ /__________  ____      
- / _ \/ / _ \/ ___/ __/ ___/ __ \/ __ \     
-/  __/ /  __/ /__/ /_/ /  / /_/ / / / /     
-\___/_/\___/\___/\__/_/   \____/_/ /_/      
+███████╗██╗   ██╗███╗   ██╗ █████╗ ██████╗ ███████╗███████╗
+██╔════╝╚██╗ ██╔╝████╗  ██║██╔══██╗██╔══██╗██╔════╝██╔════╝
+███████╗ ╚████╔╝ ██╔██╗ ██║███████║██████╔╝███████╗█████╗  
+╚════██║  ╚██╔╝  ██║╚██╗██║██╔══██║██╔═══╝ ╚════██║██╔══╝  
+███████║   ██║   ██║ ╚████║██║  ██║██║     ███████║███████╗
+╚══════╝   ╚═╝   ╚═╝  ╚═══╝╚═╝  ╚═╝╚═╝     ╚══════╝╚══════╝
+            
+⚡ synapse v0.0.5                              
 
-⚡ electron build v0.0.4                              
+Publishing endpoints to namespace cryptocurrencies.bitcoin
 
 Listening on 127.0.0.1:9999
 
 Registered Endpoints:
-- sum
+- get_nodes
+- broadcast_message
+
+Background Tasks:
+- do_stuff (5s)
 ```
 
-## Calling the endpoint from a client
+## Calling an endpoint on a node from a Python client
 
-electron uses MsgPack-RPC, so craft a payload and send it over TCP:
+Synapse uses MsgPack-RPC, so we craft a payload and send it over TCP:
 
 ```python
 import socket
 
-from electron import RemoteProcedureCall
+from synapse import RemoteProcedureCall
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
+# Connect to the node
 sock.connect(("127.0.0.1", 9999))
-sock.send(RemoteProcedureCall(endpoint="sum", args=[1, 2]).encode())
+
+sock.send(
+    RemoteProcedureCall(endpoint="broadcast_message", args=["hello everyone"]).encode()
+)
 
 data = sock.recv(1024)
 print(f"Received: \n{data.decode()}")
@@ -61,17 +85,5 @@ sock.close()
 ```
 ```
 Received: 
-Result: 3
+Sending your message to known nodes: hello everyone
 ```
-
-# Background Tasks
-
-To create a background task, decorate it with `@app.background(time_in_seconds)`:
-
-```python
-@app.background(3)
-async def some_background_task():
-    print("Running background task every 3 seconds")
-```
-
-Now the task will execute every 3 seconds.
