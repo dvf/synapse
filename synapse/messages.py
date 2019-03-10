@@ -3,7 +3,7 @@ from dataclasses import dataclass, asdict
 import msgpack
 from loguru import logger
 
-from electron.exceptions import InvalidMessageError
+from synapse.exceptions import InvalidMessageError
 
 
 @dataclass

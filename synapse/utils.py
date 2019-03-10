@@ -3,7 +3,7 @@ from hashlib import sha256
 from typing import List
 from uuid import uuid4
 
-from electron.types import Node
+from synapse.types import Node
 
 
 def guid():

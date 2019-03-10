@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "synapse"
+version = "0.1.0"
+description = "Description"
+authors = ["Rapid RPC framework for building Python services fast"]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+loguru = "*"
+msgpack = "*"
+
+[tool.poetry.dev-dependencies]
+faker = "*"
+pytest = "*"
+pytest-sugar = "*"
+pytest-cov = "*"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"

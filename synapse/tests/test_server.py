@@ -4,8 +4,8 @@ import msgpack
 import pytest
 from faker import Faker
 
-from electron.types import Node
-from electron.utils import random_hash
+from synapse.types import Node
+from synapse.utils import random_hash
 
 f = Faker()
 

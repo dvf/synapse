@@ -3,10 +3,10 @@ from random import randint
 import pytest
 from faker import Faker
 
-from electron.messages import Intro
-from electron.server import Server
-from electron.types import Node
-from electron.utils import random_hash
+from synapse.messages import Intro
+from synapse.server import Server
+from synapse.types import Node
+from synapse.utils import random_hash
 
 f = Faker()
 

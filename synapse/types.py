@@ -9,6 +9,13 @@ class Node:
     port: int
 
 
+@dataclass
+class BackgroundTask:
+    name: str
+    callable: callable
+    period: int
+
+
 def get_identifier(peer_name):
     return sha256(f"{peer_name[0]}:{peer_name[1]}".encode()).hexdigest()
 

@@ -1,4 +1,4 @@
-from electron.messages import RemoteProcedureCall
+from synapse.messages import RemoteProcedureCall
 
 
 def test_rpc_hydrate():

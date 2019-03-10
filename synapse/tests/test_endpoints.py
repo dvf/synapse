@@ -1,6 +1,6 @@
 import pytest
 
-from electron.types import Node
+from synapse.types import Node
 
 
 class TestIntro:

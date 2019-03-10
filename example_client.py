@@ -1,6 +1,6 @@
 import socket
 
-from electron.messages import RemoteProcedureCall
+from synapse.messages import RemoteProcedureCall
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 

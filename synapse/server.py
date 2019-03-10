@@ -3,10 +3,11 @@ import asyncio
 import msgpack
 from loguru import logger
 
-from electron import __logo__
-from electron.exceptions import InvalidMessageError
-from electron.messages import RemoteProcedureCall
-from electron.types import Node, build_node_from_peer_name
+from synapse import __logo__
+from synapse.background import BackgroundTaskHandler
+from synapse.exceptions import InvalidMessageError
+from synapse.messages import RemoteProcedureCall
+from synapse.types import Node, build_node_from_peer_name, BackgroundTask
 
 
 class Server:
@@ -14,9 +15,10 @@ class Server:
     def __init__(self, address="127.0.0.1", port="9999"):
         self.address = address
         self.port = port
+        self.namespace = None
         self.endpoint_directory = {}
         self.max_upload_size = 4096
-
+        self.background_executor = BackgroundTaskHandler()
         print(__logo__)
 
     def run(self):
@@ -69,6 +71,13 @@ class Server:
         for endpoint in self.endpoint_directory:
             print(f"- {endpoint}")
 
+        print(f"\nBackground Tasks:")
+        for task in self.background_executor.tasks:
+            print(f"- {task.name} ({task.period}s)")
+
+        print("\n")
+        self.background_executor()
+
         async with server:
             await server.serve_forever()
 
@@ -99,20 +108,17 @@ class Server:
 
         return decorator
 
-    @staticmethod
-    def background(period, **options):
+    def background(self, period, **options):
         """
         Decorator to schedule a background task periodically
         """
 
         def decorator(wrapped):
-            loop = asyncio.get_event_loop()
-
-            def c():
-                asyncio.ensure_future(wrapped())
-                loop.call_later(period, c)
-
-            c()
+            self.background_executor.add_task(
+                BackgroundTask(name=wrapped.__name__,
+                               callable=wrapped,
+                               period=period)
+            )
             return wrapped
 
         return decorator

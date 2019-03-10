@@ -1,4 +1,4 @@
-from electron.server import Server
+from synapse.server import Server
 
 app = Server()
 
