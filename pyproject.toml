@@ -1,8 +1,9 @@
 [tool.poetry]
 name = "synapse"
 version = "0.1.0"
-description = "Description"
-authors = ["Rapid RPC framework for building Python services fast"]
+description = "A rapid RPC framework for building p2p networks"
+authors = ["Daniel van Flymen <vanflymen@gmail.com>"]
+homepage = "https://github.com/dvf/synapse"
 
 [tool.poetry.dependencies]
 python = "^3.7"
