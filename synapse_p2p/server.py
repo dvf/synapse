@@ -3,7 +3,7 @@ import asyncio
 import msgpack
 from loguru import logger
 
-from synapse import __logo__
+from synapse_p2p import __logo__
 from synapse_p2p.background import BackgroundTaskHandler
 from synapse_p2p.exceptions import InvalidMessageError
 from synapse_p2p.messages import RemoteProcedureCall
