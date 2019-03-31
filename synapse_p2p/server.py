@@ -4,10 +4,10 @@ import msgpack
 from loguru import logger
 
 from synapse import __logo__
-from synapse.background import BackgroundTaskHandler
-from synapse.exceptions import InvalidMessageError
-from synapse.messages import RemoteProcedureCall
-from synapse.types import Node, build_node_from_peer_name, BackgroundTask
+from synapse_p2p.background import BackgroundTaskHandler
+from synapse_p2p.exceptions import InvalidMessageError
+from synapse_p2p.messages import RemoteProcedureCall
+from synapse_p2p.types import Node, build_node_from_peer_name, BackgroundTask
 
 
 class Server:

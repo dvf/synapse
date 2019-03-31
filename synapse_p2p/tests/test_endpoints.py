@@ -1,6 +1,6 @@
 import pytest
 
-from synapse.types import Node
+from synapse_p2p.types import Node
 
 
 class TestIntro:

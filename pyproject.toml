@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "synapse"
+name = "synapse-p2p"
 version = "0.1.0"
 description = "A rapid RPC framework for building p2p networks"
 authors = ["Daniel van Flymen <vanflymen@gmail.com>"]

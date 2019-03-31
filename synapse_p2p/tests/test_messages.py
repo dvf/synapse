@@ -1,4 +1,4 @@
-from synapse.messages import RemoteProcedureCall
+from synapse_p2p.messages import RemoteProcedureCall
 
 
 def test_rpc_hydrate():

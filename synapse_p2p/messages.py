@@ -3,7 +3,7 @@ from dataclasses import dataclass, asdict
 import msgpack
 from loguru import logger
 
-from synapse.exceptions import InvalidMessageError
+from synapse_p2p.exceptions import InvalidMessageError
 
 
 @dataclass

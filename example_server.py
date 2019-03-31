@@ -1,4 +1,4 @@
-from synapse.server import Server
+from synapse_p2p.server import Server
 
 app = Server()
 

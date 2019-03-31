@@ -1,7 +1,7 @@
 import asyncio
 import multiprocessing
 
-from synapse.types import BackgroundTask
+from synapse_p2p.types import BackgroundTask
 
 
 class BackgroundTaskHandler:

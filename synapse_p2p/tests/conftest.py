@@ -3,10 +3,10 @@ from random import randint
 import pytest
 from faker import Faker
 
-from synapse.messages import Intro
-from synapse.server import Server
-from synapse.types import Node
-from synapse.utils import random_hash
+from synapse_p2p.messages import Intro
+from synapse_p2p.server import Server
+from synapse_p2p.types import Node
+from synapse_p2p.utils import random_hash
 
 f = Faker()
 

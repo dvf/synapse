@@ -11,7 +11,7 @@ __logo__ = f"""
 \033[33m⚡ \033[35msynapse \033[36mv{__version__}\033[0m                              
 """
 
-from synapse.server import Server
-from synapse.messages import RemoteProcedureCall
+from synapse_p2p.server import Server
+from synapse_p2p.messages import RemoteProcedureCall
 
 __all__ = ["Server", "RemoteProcedureCall", __logo__]

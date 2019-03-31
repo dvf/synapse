@@ -15,7 +15,7 @@ Synapse creates and discovers p2p nodes on common namespace, which can be whatev
 This example creates two public endpoints/functions (`get_peers`, `broadcast_message`) which anyone on the network may call. There's also a background task `do_stuff` which is a task running in the background.
 
 ```python
-from synapse.server import Server
+from synapse_p2p.server import Server
 
 app = Server(namespace="cryptocurrencies.bitcoin")
 

@@ -1,6 +1,6 @@
 import socket
 
-from synapse.messages import RemoteProcedureCall
+from synapse_p2p.messages import RemoteProcedureCall
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 

@@ -4,8 +4,8 @@ import msgpack
 import pytest
 from faker import Faker
 
-from synapse.types import Node
-from synapse.utils import random_hash
+from synapse_p2p.types import Node
+from synapse_p2p.utils import random_hash
 
 f = Faker()
 
