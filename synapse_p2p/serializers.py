@@ -8,10 +8,12 @@ from synapse_p2p.exceptions import InvalidMessageError
 
 
 class BaseRPCSerializer:
-    def serialize(self, outgoing: dict) -> bytes:
+    @classmethod
+    def serialize(cls, outgoing: RemoteProcedureCall) -> bytes:
         raise NotImplementedError
 
-    def deserialize(self, incoming: bytes) -> dict:
+    @classmethod
+    def deserialize(cls, incoming: bytes) -> RemoteProcedureCall:
         raise NotImplementedError
 
 
