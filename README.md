@@ -1,6 +1,7 @@
-<img src="https://user-images.githubusercontent.com/1169974/54090956-6e63f500-4350-11e9-882a-c846420c22f2.png" width=700>
+<img width="1074" src="https://user-images.githubusercontent.com/1169974/55302502-60653980-540f-11e9-94d0-03229ceeac4e.png">
 
-A rapid RPC Framework for building Python 3.7+ services using asyncio + [MsgPack](https://msgpack.org/index.html)
+
+A rapid RPC Framework for building p2p networks
 
 # Installation
 
@@ -29,25 +30,6 @@ async def my_endpoint(a, b, response, **kwargs):
 
 
 app.run()
-```
-
-```
-███████╗██╗   ██╗███╗   ██╗ █████╗ ██████╗ ███████╗███████╗
-██╔════╝╚██╗ ██╔╝████╗  ██║██╔══██╗██╔══██╗██╔════╝██╔════╝
-███████╗ ╚████╔╝ ██╔██╗ ██║███████║██████╔╝███████╗█████╗  
-╚════██║  ╚██╔╝  ██║╚██╗██║██╔══██║██╔═══╝ ╚════██║██╔══╝  
-███████║   ██║   ██║ ╚████║██║  ██║██║     ███████║███████╗
-╚══════╝   ╚═╝   ╚═╝  ╚═══╝╚═╝  ╚═╝╚═╝     ╚══════╝╚══════╝
-            
-⚡ synapse v0.1.1                              
-
-Listening on 127.0.0.1:9999
-
-Registered Endpoints:
-- sum
-
-Background Tasks:
-- some_background_task (3s)
 ```
 
 ## Calling an endpoint on a node from a Python client
