@@ -1,24 +1,25 @@
 import asyncio
 
-import msgpack
 from loguru import logger
 
 from synapse_p2p import __logo__
 from synapse_p2p.background import BackgroundTaskHandler
 from synapse_p2p.exceptions import InvalidMessageError
 from synapse_p2p.messages import RemoteProcedureCall
+from synapse_p2p.serializers import MessagePackRPCSerializer
 from synapse_p2p.types import Node, build_node_from_peer_name, BackgroundTask
 
 
 class Server:
 
-    def __init__(self, address="127.0.0.1", port="9999"):
+    def __init__(self, address="127.0.0.1", port="9999", serializer_class=MessagePackRPCSerializer):
         self.address = address
         self.port = port
         self.namespace = None
         self.endpoint_directory = {}
         self.max_upload_size = 4096
         self.background_executor = BackgroundTaskHandler()
+        self.serializer_class = serializer_class
         print(__logo__)
 
     def run(self):
@@ -42,20 +43,19 @@ class Server:
         data = await reader.read(self.max_upload_size)
 
         try:
-            rpc: RemoteProcedureCall = self.parse_message(data)
+            rpc: RemoteProcedureCall = self.serializer_class.deserialize(data)
 
             endpoint = self.endpoint_directory.get(rpc.endpoint)
             if not endpoint:
-                raise InvalidMessageError
+                raise InvalidMessageError(f"Unregistered endpoint called: {rpc.endpoint}")
 
-            response = await endpoint(*rpc.args, rpc=rpc, node=node)
-            writer.write(response.encode("utf8"))
+            r = await endpoint(*rpc.args, rpc=rpc, node=node, response=writer)
+            if r is None:
+                await writer.drain()
 
         except InvalidMessageError:
             logger.debug(f"Invalid message received", extra={"ip": node.ip, "port": node.port, "raw": data})
             writer.write("400".encode())
-
-        await writer.drain()
 
         logger.debug("Closing Connection")
         writer.close()
@@ -80,22 +80,6 @@ class Server:
 
         async with server:
             await server.serve_forever()
-
-    @staticmethod
-    def parse_message(data: bytes):
-        unpacked = msgpack.unpackb(data, raw=False)
-        if not isinstance(unpacked, dict):
-            raise InvalidMessageError("Received data could not be deserialized")
-
-        if not unpacked.get("endpoint"):
-            raise InvalidMessageError("Received data did not contain an RPC name")
-
-        try:
-            rpc = RemoteProcedureCall.hydrate(unpacked)
-        except TypeError as e:
-            raise InvalidMessageError("Received data is not a valid RPC") from e
-
-        return rpc
 
     def endpoint(self, name=None, **options):
         """
