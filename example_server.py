@@ -9,8 +9,8 @@ async def some_background_task():
 
 
 @app.endpoint("sum")
-async def my_endpoint(a, b, **kwargs):
-    return f"Result: {a + b}"
+async def my_endpoint(a, b, response, **kwargs):
+    response.write(f"The sum is {a + b}".encode())
 
 
 app.run()
