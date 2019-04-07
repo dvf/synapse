@@ -9,17 +9,15 @@ class BackgroundTaskHandler:
         self.cpu_count = n or multiprocessing.cpu_count()
         self.tasks = []
 
-    @staticmethod
-    def schedule_task(coroutine: BackgroundTask):
-        loop = asyncio.get_running_loop()
+    def schedule_task(self, background_task: BackgroundTask):
+        asyncio.create_task(background_task.callable())
 
-        # Schedule coroutine recursively
-        async def c():
-            await asyncio.sleep(coroutine.period)
-            await coroutine.callable()
-            await c()
-
-        loop.create_task(c())
+        # Schedule recursive background task
+        asyncio.get_event_loop().call_later(
+            background_task.period,
+            self.schedule_task,
+            background_task,
+        )
 
     def add_task(self, task: BackgroundTask):
         self.tasks.append(task)
