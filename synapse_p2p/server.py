@@ -43,6 +43,8 @@ class Server:
         data = await reader.read(self.max_upload_size)
 
         try:
+            # TODO (dvf): Implement localized serialization here
+            # Deconstruct first N bytes by matching against the serializer message
             rpc: RemoteProcedureCall = self.serializer_class.deserialize(data)
 
             endpoint = self.endpoint_directory.get(rpc.endpoint)
