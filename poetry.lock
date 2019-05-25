@@ -1,5 +1,13 @@
 [[package]]
 category = "main"
+description = "asyncio bridge to the standard sqlite3 module"
+name = "aiosqlite"
+optional = false
+python-versions = ">=3.5"
+version = "0.10.0"
+
+[[package]]
+category = "main"
 description = "Produce colored terminal text with an xml-like markup"
 name = "ansimarkup"
 optional = false
@@ -231,10 +239,11 @@ python-versions = "*"
 version = "1.2"
 
 [metadata]
-content-hash = "814a399305122f4ba727e7e56b7418649ec27ac5c8862cf530451c7ceac64538"
+content-hash = "099dcdbed6249178eef68f7372efe272ad3d1f7555e7869f13aae6528e9254fe"
 python-versions = "^3.7"
 
 [metadata.hashes]
+aiosqlite = ["ad84fbd7516ca7065d799504fc41d6845c938e5306d1b7dd960caaeda12e22a9"]
 ansimarkup = ["06365e3ef89a12734fc408b2449cb4642d5fe2e603e95e7296eff9e98a0fe0b4", "174d920481416cec8d5a707af542d6fba25a1df1c21d8996479c32ba453649a4"]
 atomicwrites = ["03472c30eb2c5d1ba9227e4c2ca66ab8287fbfbbda3888aa93dc2e28fc6811b4", "75a9445bac02d8d058d5e1fe689654ba5a6556a1dfd8ce6ec55a0ed79866cfa6"]
 attrs = ["69c0dbf2ed392de1cb5ec704444b08a5ef81680a61cb899dc08127123af36a79", "f0b870f674851ecbfbbbd364d6b5cbdff9dcedbc7f3f5e18a6891057f21fe399"]
