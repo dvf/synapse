@@ -1,27 +1,19 @@
 import asyncio
-import multiprocessing
 
 from synapse_p2p.types import BackgroundTask
 
 
 class BackgroundTaskHandler:
-    def __init__(self, n=None):
-        self.cpu_count = n or multiprocessing.cpu_count()
-        self.tasks = []
+    def __init__(self) -> None:
+        self.tasks: list[BackgroundTask] = []
 
-    def schedule_task(self, background_task: BackgroundTask):
-        asyncio.create_task(background_task.callable())
-
-        # Schedule recursive background task
-        asyncio.get_event_loop().call_later(
-            background_task.period,
-            self.schedule_task,
-            background_task,
-        )
-
-    def add_task(self, task: BackgroundTask):
+    def add_task(self, task: BackgroundTask) -> None:
         self.tasks.append(task)
 
-    def __call__(self, *args, **kwargs):
+    def _schedule(self, task: BackgroundTask) -> None:
+        asyncio.create_task(task.callable())
+        asyncio.get_running_loop().call_later(task.period, self._schedule, task)
+
+    def start(self) -> None:
         for task in self.tasks:
-            self.schedule_task(task)
+            self._schedule(task)

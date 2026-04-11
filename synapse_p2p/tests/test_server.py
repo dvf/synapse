@@ -1,50 +1,57 @@
-from random import randint
+import asyncio
 
-import msgpack
 import pytest
-from faker import Faker
 
-from synapse_p2p.types import Node
-from synapse_p2p.utils import random_hash
-
-f = Faker()
+from synapse_p2p.messages import RemoteProcedureCall
+from synapse_p2p.serializers import MessagePackRPCSerializer
+from synapse_p2p.server import Server
 
 
-@pytest.fixture
-def address():
-    return f.ipv4(), randint(2000, 60000)
+def test_endpoint_decorator_registers(server):
+    @server.endpoint("sum")
+    async def _sum(a, b, **kwargs):
+        return a + b
+
+    assert "sum" in server.endpoint_directory
 
 
-def node_factory(identifier=None, ip=None, port=None):
-    return {
-        "identifier": identifier or random_hash(),
-        "ip": ip or f.ipv4(),
-        "port": port or randint(1000, 60000),
-    }
+def test_endpoint_decorator_uses_function_name_by_default(server):
+    @server.endpoint()
+    async def ping(**kwargs):
+        return None
+
+    assert "ping" in server.endpoint_directory
 
 
-@pytest.fixture
-def valid_intro_message(node):
-    return {
-        "identifier": random_hash(),
-        "nodes": [node() for _ in range(randint(0, 100))],
-        "m": "intro",
-    }
+def test_background_decorator_registers_task(server):
+    @server.background(5)
+    async def heartbeat():
+        pass
+
+    assert len(server.background_executor.tasks) == 1
+    assert server.background_executor.tasks[0].name == "heartbeat"
+    assert server.background_executor.tasks[0].period == 5
 
 
-@pytest.fixture
-def valid_ping_message(node):
-    return {
-        "identifier": random_hash(),
-        "m": "ping",
-    }
+@pytest.mark.asyncio
+async def test_server_round_trip_over_tcp():
+    server = Server(address="127.0.0.1", port=0)
 
+    @server.endpoint("sum")
+    async def _sum(a, b, response, **kwargs):
+        response.write(f"{a + b}".encode())
 
-def test_parse_message_intro(server, valid_intro_message, address):
-    new_intro, caller = server.parse_message(msgpack.packb(valid_intro_message), address)
+    tcp = await asyncio.start_server(server.handle_data, server.address, server.port)
+    host, port = tcp.sockets[0].getsockname()[:2]
 
-    assert isinstance(caller, Node)
-    assert isinstance(new_intro, Intro)
-    assert new_intro.identifier is not None
-    assert caller.distance > 0
+    async with tcp:
+        reader, writer = await asyncio.open_connection(host, port)
+        writer.write(
+            MessagePackRPCSerializer.serialize(RemoteProcedureCall(endpoint="sum", args=[2, 3]))
+        )
+        await writer.drain()
+        data = await reader.read(1024)
+        writer.close()
+        await writer.wait_closed()
 
+    assert data == b"5"

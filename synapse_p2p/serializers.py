@@ -3,8 +3,8 @@ from dataclasses import asdict
 import msgpack
 from loguru import logger
 
-from synapse_p2p import RemoteProcedureCall
 from synapse_p2p.exceptions import InvalidMessageError
+from synapse_p2p.messages import RemoteProcedureCall
 
 
 class BaseRPCSerializer:
@@ -25,7 +25,8 @@ class MessagePackRPCSerializer(BaseRPCSerializer):
     @classmethod
     def deserialize(cls, incoming: bytes) -> RemoteProcedureCall:
         try:
-            return RemoteProcedureCall(**msgpack.unpackb(incoming, raw=False))
-        except TypeError as e:
-            logger.error(f"Could not deserialize payload to dataclass", bytes)
-            raise InvalidMessageError from e
+            payload = msgpack.unpackb(incoming, raw=False)
+            return RemoteProcedureCall(**payload)
+        except (TypeError, ValueError, msgpack.UnpackException) as e:
+            logger.error("Could not deserialize payload: {!r}", incoming)
+            raise InvalidMessageError(str(e)) from e

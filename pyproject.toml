@@ -2,8 +2,9 @@
 name = "synapse-p2p"
 version = "0.1.4"
 description = "A rapid RPC framework for building p2p networks"
+readme = "README.md"
 authors = [{ name = "Daniel van Flymen", email = "vanflymen@gmail.com" }]
-requires-python = ">=3.7"
+requires-python = ">=3.10"
 dependencies = [
     "loguru",
     "msgpack",
@@ -16,8 +17,10 @@ Homepage = "https://github.com/dvf/synapse"
 dev = [
     "faker",
     "pytest",
-    "pytest-sugar",
+    "pytest-asyncio",
     "pytest-cov",
+    "pytest-sugar",
+    "ruff",
 ]
 
 [build-system]
@@ -26,3 +29,14 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["synapse_p2p"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["synapse_p2p/tests"]

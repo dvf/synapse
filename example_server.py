@@ -1,16 +1,17 @@
-from synapse_p2p.server import Server
+from synapse_p2p import Server
 
 app = Server()
 
 
 @app.background(3)
-async def some_background_task():
+async def heartbeat():
     print("Running background task every 3 seconds")
 
 
 @app.endpoint("sum")
-async def my_endpoint(a, b, response, **kwargs):
+async def sum_endpoint(a, b, response, **kwargs):
     response.write(f"The sum is {a + b}".encode())
 
 
-app.run()
+if __name__ == "__main__":
+    app.run()
