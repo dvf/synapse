@@ -1,0 +1,41 @@
+name: Publish to PyPI (uv)
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write             # OIDC → PyPI (token-free)
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      # --------------------------------------------------------------
+      # Build sdist & wheels – version is resolved automatically
+      # --------------------------------------------------------------
+      - name: Build distributions
+        run: uv build -o dist/
+
+      # --------------------------------------------------------------
+      # Publish to PyPI with trusted publishing (OIDC)
+      # --------------------------------------------------------------
+      - name: Publish
+        run: uv publish dist/*
+        env:
+          UV_PUBLISH_NON_INTERACTIVE: "1"
