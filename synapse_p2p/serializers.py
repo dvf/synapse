@@ -24,7 +24,10 @@ class MessagePackRPCSerializer(BaseRPCSerializer):
     def serialize(cls, outgoing: RPCMessage) -> bytes:
         if not is_dataclass(outgoing):
             raise TypeError("RPC messages must be dataclass instances")
-        return msgpack.packb(asdict(outgoing), use_bin_type=True)
+        payload = msgpack.packb(asdict(outgoing), use_bin_type=True)
+        if not isinstance(payload, bytes):
+            raise TypeError("serializer produced a non-bytes payload")
+        return payload
 
     @classmethod
     def deserialize(cls, incoming: bytes) -> RPCMessage:

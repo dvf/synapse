@@ -14,6 +14,7 @@ def test_roundtrip():
 
 def test_deserialize_rejects_unknown_fields():
     payload = msgpack.packb({"endpoint": "sum", "args": [1], "bogus": True})
+    assert isinstance(payload, bytes)
     with pytest.raises(InvalidMessageError):
         MessagePackRPCSerializer.deserialize(payload)
 
