@@ -79,6 +79,7 @@ app = Server(address="127.0.0.1", port=9999)  # or Server() for defaults
 
 @app.endpoint("sum", description="Add two numbers")
 async def sum_endpoint(a: int, b: int) -> int:
+    """Add two numbers."""
     return a + b
 
 
@@ -186,11 +187,12 @@ Example response:
 ]
 ```
 
-Endpoints are published by default:
+Endpoints are published by default. Add a docstring to make them more useful to humans and agents inspecting `_synapse.methods`:
 
 ```python
-@app.endpoint("image.resize", description="Resize an image")
+@app.endpoint("image.resize")
 async def resize_image(...):
+    """Resize an image."""
     ...
 ```
 
@@ -292,8 +294,9 @@ if "code-review" in info["capabilities"]:
 ### 3. Publish tools as RPC methods
 
 ```python
-@app.endpoint("filesystem.search", description="Search files by regex")
+@app.endpoint("filesystem.search")
 async def search_files(pattern: str) -> list[str]:
+    """Search files by regex."""
     ...
 ```
 

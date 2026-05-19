@@ -101,9 +101,10 @@ class Server:
         for endpoint in self.endpoint_directory:
             print(f"- {endpoint}")
 
-        print("\nBackground Tasks:")
-        for task in self.background_executor.tasks:
-            print(f"- {task.name} ({task.period}s)")
+        if self.background_executor.tasks:
+            print("\nBackground Tasks:")
+            for task in self.background_executor.tasks:
+                print(f"- {task.name} ({task.period}s)")
         print()
 
     async def start(self) -> asyncio.Server:
