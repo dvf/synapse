@@ -9,8 +9,8 @@ async def heartbeat():
 
 
 @app.endpoint("sum")
-async def sum_endpoint(a, b, response, **kwargs):
-    response.write(f"The sum is {a + b}".encode())
+async def sum_endpoint(a, b):
+    return a + b
 
 
 if __name__ == "__main__":

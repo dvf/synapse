@@ -1,18 +1,12 @@
-import socket
+import asyncio
 
-from synapse_p2p import RemoteProcedureCall
-from synapse_p2p.serializers import MessagePackRPCSerializer
+from synapse_p2p import Client
 
 
-def main() -> None:
-    with socket.create_connection(("127.0.0.1", 9999)) as sock:
-        sock.sendall(
-            MessagePackRPCSerializer.serialize(RemoteProcedureCall(endpoint="sum", args=[1, 2]))
-        )
-        data = sock.recv(1024)
-
-    print(f"Received:\n{data.decode()}")
+async def main() -> None:
+    result = await Client("127.0.0.1", 9999).call("sum", 1, 2)
+    print(f"Received: {result}")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

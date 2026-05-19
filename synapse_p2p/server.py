@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import inspect
 from collections.abc import Callable
 
 from loguru import logger
@@ -7,7 +8,8 @@ from loguru import logger
 from synapse_p2p import __logo__
 from synapse_p2p.background import BackgroundTaskHandler
 from synapse_p2p.exceptions import InvalidMessageError
-from synapse_p2p.messages import RemoteProcedureCall
+from synapse_p2p.framing import read_frame, write_frame
+from synapse_p2p.messages import RPCError, RPCRequest, RPCResponse
 from synapse_p2p.serializers import BaseRPCSerializer, MessagePackRPCSerializer
 from synapse_p2p.types import BackgroundTask, Node, build_node_from_peer_name
 
@@ -33,29 +35,51 @@ class Server:
         with contextlib.suppress(KeyboardInterrupt):
             asyncio.run(self.serve())
 
+    async def _dispatch(self, rpc: RPCRequest, node: Node):
+        endpoint = self.endpoint_directory.get(rpc.endpoint)
+        if endpoint is None:
+            raise InvalidMessageError(f"Unregistered endpoint called: {rpc.endpoint}")
+
+        signature = inspect.signature(endpoint)
+        injected = {"rpc": rpc, "node": node}
+        kwargs = dict(rpc.kwargs)
+        for name, value in injected.items():
+            if name in signature.parameters:
+                kwargs[name] = value
+
+        return await endpoint(*rpc.args, **kwargs)
+
     async def handle_data(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
-        """Receive data, dispatch to registered endpoint, write response."""
+        """Receive a framed request, dispatch it, and write a framed response."""
         node: Node = build_node_from_peer_name(writer.get_extra_info("peername"))
         logger.debug("Talking to Node {} @ {}:{}", node.identifier, node.ip, node.port)
-
-        data = await reader.read(self.max_upload_size)
+        request_id = ""
 
         try:
-            rpc: RemoteProcedureCall = self.serializer_class.deserialize(data)
+            data = await read_frame(reader, self.max_upload_size)
+            rpc = self.serializer_class.deserialize(data)
+            if not isinstance(rpc, RPCRequest):
+                raise InvalidMessageError("expected request message")
+            request_id = rpc.id
 
-            endpoint = self.endpoint_directory.get(rpc.endpoint)
-            if endpoint is None:
-                raise InvalidMessageError(f"Unregistered endpoint called: {rpc.endpoint}")
-
-            await endpoint(*rpc.args, rpc=rpc, node=node, response=writer)
-        except InvalidMessageError:
-            logger.debug("Invalid message from {}:{}: {!r}", node.ip, node.port, data)
-            writer.write(b"400")
-        except Exception:
+            result = await self._dispatch(rpc, node)
+            response = RPCResponse(id=request_id, ok=True, result=result)
+        except InvalidMessageError as e:
+            logger.debug("Invalid message from {}:{}: {}", node.ip, node.port, e)
+            response = RPCResponse(
+                id=request_id,
+                ok=False,
+                error=RPCError(code="bad_request", message=str(e)),
+            )
+        except Exception as e:
             logger.exception("Endpoint raised while handling {}:{}", node.ip, node.port)
-            writer.write(b"500")
+            response = RPCResponse(
+                id=request_id,
+                ok=False,
+                error=RPCError(code="internal_error", message=str(e)),
+            )
 
-        await writer.drain()
+        await write_frame(writer, self.serializer_class.serialize(response))
         logger.debug("Closing connection to {}:{}", node.ip, node.port)
         writer.close()
         await writer.wait_closed()
