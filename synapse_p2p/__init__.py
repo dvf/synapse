@@ -17,11 +17,14 @@ __logo__ = f"""
 \033[33m⚡ \033[35msynapse \033[36m{__version__}\033[0m
 """
 
+from synapse_p2p.agent import AgentCapability, AgentNode
 from synapse_p2p.client import Client
 from synapse_p2p.messages import RemoteProcedureCall, RPCError, RPCRequest, RPCResponse
 from synapse_p2p.server import Server
 
 __all__ = [
+    "AgentCapability",
+    "AgentNode",
     "Client",
     "RPCError",
     "RPCRequest",
