@@ -44,3 +44,24 @@ async def test_background_task_holds_strong_reference_until_done():
     await asyncio.sleep(0)
     await asyncio.sleep(0)
     assert handler._running == set()
+
+
+@pytest.mark.asyncio
+async def test_background_task_stop_cancels_future_runs():
+    calls = 0
+
+    async def tick():
+        nonlocal calls
+        calls += 1
+
+    handler = BackgroundTaskHandler()
+    handler.add_task(BackgroundTask(name="tick", callable=tick, period=0.01))
+    handler.start()
+    await asyncio.sleep(0.02)
+    await handler.stop()
+
+    calls_after_stop = calls
+    await asyncio.sleep(0.03)
+
+    assert calls_after_stop >= 1
+    assert calls == calls_after_stop

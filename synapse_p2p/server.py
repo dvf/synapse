@@ -28,6 +28,7 @@ class Server:
         self.max_upload_size = max_upload_size
         self.background_executor = BackgroundTaskHandler()
         self.serializer_class = serializer_class
+        self._server: asyncio.Server | None = None
 
     def run(self) -> None:
         """Run the server."""
@@ -84,10 +85,7 @@ class Server:
         writer.close()
         await writer.wait_closed()
 
-    async def serve(self) -> None:
-        """Attach TCP Stream handler to underlying socket interface."""
-        server = await asyncio.start_server(self.handle_data, self.address, self.port)
-
+    def _print_startup(self) -> None:
         print(f"Listening on {self.address}:{self.port}\n")
         print("Registered Endpoints:")
         for endpoint in self.endpoint_directory:
@@ -98,10 +96,35 @@ class Server:
             print(f"- {task.name} ({task.period}s)")
         print()
 
-        self.background_executor.start()
+    async def start(self) -> asyncio.Server:
+        """Start accepting connections without blocking forever."""
+        if self._server is not None:
+            return self._server
 
-        async with server:
-            await server.serve_forever()
+        self._server = await asyncio.start_server(self.handle_data, self.address, self.port)
+        self.background_executor.start()
+        return self._server
+
+    async def stop(self) -> None:
+        """Stop accepting connections and cancel background tasks."""
+        await self.background_executor.stop()
+        if self._server is None:
+            return
+
+        self._server.close()
+        await self._server.wait_closed()
+        self._server = None
+
+    async def serve(self) -> None:
+        """Attach TCP Stream handler to underlying socket interface."""
+        server = await self.start()
+        self._print_startup()
+
+        try:
+            async with server:
+                await server.serve_forever()
+        finally:
+            await self.stop()
 
     def endpoint(self, name: str | None = None) -> Callable:
         """Decorator to register a coroutine as an RPC endpoint."""
