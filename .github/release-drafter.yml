@@ -1,0 +1,32 @@
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+categories:
+  - title: '⚠️ Breaking Changes'
+    labels: [ 'breaking-change' ]
+  - title: '🚀 Features'
+    labels: [ 'breaking-change','feature' ]
+  - title: '🐛 Fixes'
+    labels: [ 'fix' ]
+  - title: '🧰 Maintenance'
+    labels: [ 'maintenance' ]
+  - title: '⚠️ Changes that include Migrations'
+    labels: [ 'migration' ]
+
+change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
+change-title-escapes: '\<*_&'
+
+version-resolver:
+  major:
+    labels:
+      - 'breaking-change'
+  minor:
+    labels:
+      - 'feature'
+  patch:
+    labels:
+      - 'fix'
+      - 'maintenance'
+  default: patch
+
+template: |
+  $CHANGES

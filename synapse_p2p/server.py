@@ -47,13 +47,15 @@ class Server:
             if endpoint is None:
                 raise InvalidMessageError(f"Unregistered endpoint called: {rpc.endpoint}")
 
-            result = await endpoint(*rpc.args, rpc=rpc, node=node, response=writer)
-            if result is None:
-                await writer.drain()
+            await endpoint(*rpc.args, rpc=rpc, node=node, response=writer)
         except InvalidMessageError:
             logger.debug("Invalid message from {}:{}: {!r}", node.ip, node.port, data)
             writer.write(b"400")
+        except Exception:
+            logger.exception("Endpoint raised while handling {}:{}", node.ip, node.port)
+            writer.write(b"500")
 
+        await writer.drain()
         logger.debug("Closing connection to {}:{}", node.ip, node.port)
         writer.close()
         await writer.wait_closed()

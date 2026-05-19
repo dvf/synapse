@@ -4,27 +4,21 @@ from hashlib import sha256
 from typing import Any
 
 
-@dataclass
+@dataclass(slots=True)
 class Node:
     identifier: str
     ip: str
     port: int
 
 
-@dataclass
+@dataclass(slots=True)
 class BackgroundTask:
     name: str
     callable: Callable[..., Awaitable[Any]]
     period: float
 
 
-def get_identifier(peer_name: tuple[str, int]) -> str:
-    return sha256(f"{peer_name[0]}:{peer_name[1]}".encode()).hexdigest()
-
-
 def build_node_from_peer_name(peer_name: tuple[str, int]) -> Node:
-    return Node(
-        identifier=get_identifier(peer_name)[:8],
-        ip=peer_name[0],
-        port=peer_name[1],
-    )
+    ip, port = peer_name
+    identifier = sha256(f"{ip}:{port}".encode()).hexdigest()[:8]
+    return Node(identifier=identifier, ip=ip, port=port)
