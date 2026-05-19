@@ -31,11 +31,13 @@ def test_error_response_roundtrip():
 
 def test_deserialize_rejects_unknown_response_fields():
     payload = msgpack.packb({"type": "response", "id": "abc", "ok": True, "bogus": True})
+    assert isinstance(payload, bytes)
     with pytest.raises(InvalidMessageError):
         MessagePackRPCSerializer.deserialize(payload)
 
 
 def test_deserialize_rejects_non_map_payload():
     payload = msgpack.packb(["not", "a", "map"])
+    assert isinstance(payload, bytes)
     with pytest.raises(InvalidMessageError):
         MessagePackRPCSerializer.deserialize(payload)

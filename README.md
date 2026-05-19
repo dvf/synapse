@@ -102,6 +102,18 @@ Call with keyword arguments:
 result = await client.call("greet", "Ada", excited=True)
 ```
 
+## Server lifecycle
+
+Use `app.run()` for simple scripts. In larger async applications or tests, use `start()` and `stop()`:
+
+```python
+server = await app.start()
+try:
+    ...
+finally:
+    await app.stop()
+```
+
 ## Background tasks
 
 Synapse can also run recurring async background jobs alongside your RPC server:

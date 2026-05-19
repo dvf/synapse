@@ -176,6 +176,23 @@ async def test_client_timeout():
             await Client(host, port, timeout=0.01).call("slow")
 
 
+@pytest.mark.asyncio
+async def test_server_start_and_stop_lifecycle():
+    server = Server(address="127.0.0.1", port=0)
+
+    @server.endpoint("ping")
+    async def ping():
+        return "pong"
+
+    tcp = await server.start()
+    host, port = tcp.sockets[0].getsockname()[:2]
+
+    assert await Client(host, port).call("ping") == "pong"
+
+    await server.stop()
+    assert server._server is None
+
+
 def test_response_error_shape():
     response = RPCResponse(id="abc", ok=False, error=RPCError("code", "message"))
     assert response.error is not None
