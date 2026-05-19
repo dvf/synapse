@@ -1,7 +1,7 @@
 [project]
 name = "synapse-p2p"
 dynamic = ["version"]
-description = "A rapid RPC framework for building p2p networks"
+description = "A network substrate for Python agents"
 readme = "README.md"
 authors = [{ name = "Daniel van Flymen", email = "vanflymen@gmail.com" }]
 requires-python = ">=3.10"

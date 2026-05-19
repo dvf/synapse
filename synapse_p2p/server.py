@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import inspect
 from collections.abc import Callable
+from dataclasses import asdict, dataclass
 
 from loguru import logger
 
@@ -12,6 +13,13 @@ from synapse_p2p.framing import read_frame, write_frame
 from synapse_p2p.messages import RPCError, RPCRequest, RPCResponse
 from synapse_p2p.serializers import BaseRPCSerializer, MessagePackRPCSerializer
 from synapse_p2p.types import BackgroundTask, Node, build_node_from_peer_name
+
+
+@dataclass(slots=True)
+class EndpointMetadata:
+    name: str
+    publish: bool = True
+    description: str = ""
 
 
 class Server:
@@ -25,10 +33,12 @@ class Server:
         self.address = address
         self.port = port
         self.endpoint_directory: dict[str, Callable] = {}
+        self.endpoint_metadata: dict[str, EndpointMetadata] = {}
         self.max_upload_size = max_upload_size
         self.background_executor = BackgroundTaskHandler()
         self.serializer_class = serializer_class
         self._server: asyncio.Server | None = None
+        self._register_system_endpoints()
 
     def run(self) -> None:
         """Run the server."""
@@ -126,11 +136,36 @@ class Server:
         finally:
             await self.stop()
 
-    def endpoint(self, name: str | None = None) -> Callable:
+    def _register_system_endpoints(self) -> None:
+        @self.endpoint("_synapse.ping", publish=False)
+        async def ping() -> str:
+            return "pong"
+
+        @self.endpoint("_synapse.methods", publish=False)
+        async def methods() -> list[dict[str, str | bool]]:
+            return [
+                asdict(metadata)
+                for metadata in self.endpoint_metadata.values()
+                if metadata.publish
+            ]
+
+    def endpoint(
+        self,
+        name: str | None = None,
+        *,
+        publish: bool = True,
+        description: str = "",
+    ) -> Callable:
         """Decorator to register a coroutine as an RPC endpoint."""
 
         def decorator(wrapped: Callable) -> Callable:
-            self.endpoint_directory[name or wrapped.__name__] = wrapped
+            endpoint_name = name or wrapped.__name__
+            self.endpoint_directory[endpoint_name] = wrapped
+            self.endpoint_metadata[endpoint_name] = EndpointMetadata(
+                name=endpoint_name,
+                publish=publish,
+                description=description or inspect.getdoc(wrapped) or "",
+            )
             return wrapped
 
         return decorator
