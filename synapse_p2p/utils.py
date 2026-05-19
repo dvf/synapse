@@ -1,12 +1,7 @@
 import os
 from hashlib import sha256
-from uuid import uuid4
 
 from synapse_p2p.types import Node
-
-
-def guid() -> str:
-    return uuid4().hex
 
 
 def random_hash() -> str:

@@ -15,7 +15,6 @@ Homepage = "https://github.com/dvf/synapse"
 
 [dependency-groups]
 dev = [
-    "faker",
     "pytest",
     "pytest-asyncio",
     "pytest-cov",
