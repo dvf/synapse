@@ -172,17 +172,27 @@ await client.call("_synapse.ping")
 Returns published RPC methods:
 
 ```python
-await client.call("_synapse.methods")
+methods = await client.call("_synapse.methods")
+print(methods)
 ```
 
-Example response:
+For this endpoint:
+
+```python
+@app.endpoint("sum")
+async def sum_endpoint(a: int, b: int) -> int:
+    """Add two numbers."""
+    return a + b
+```
+
+The result is:
 
 ```python
 [
     {
         "name": "sum",
         "publish": True,
-        "description": "Add two numbers",
+        "description": "Add two numbers.",
     }
 ]
 ```
@@ -327,9 +337,30 @@ finally:
 Synapse can run recurring async background jobs alongside your RPC server:
 
 ```python
+from synapse_p2p import Server
+
+app = Server()
+
+
 @app.background(5)
 async def heartbeat():
-    print("still alive")
+    print("heartbeat: server is still alive")
+
+
+@app.endpoint("sum")
+async def sum_endpoint(a: int, b: int) -> int:
+    return a + b
+
+
+if __name__ == "__main__":
+    app.run()
+```
+
+Startup output will include the task:
+
+```text
+Background Tasks:
+- heartbeat (5s)
 ```
 
 The task above runs roughly every five seconds. Exceptions are logged and do not stop future runs.
