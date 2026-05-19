@@ -1,4 +1,4 @@
-<img width="1074" src="https://user-images.githubusercontent.com/1169974/55302502-60653980-540f-11e9-94d0-03229ceeac4e.png">
+<img width="974" height="513" alt="image" src="https://github.com/user-attachments/assets/b32d5edd-0a34-4d5e-baf6-8a7f8eea59bb" />
 
 # Synapse P2P
 
