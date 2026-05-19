@@ -1,4 +1,10 @@
-__version__ = "0.1.4"
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("synapse-p2p")
+except PackageNotFoundError:
+    __version__ = "0.0.0"
+
 __logo__ = f"""
 \033[32m
 ███████╗██╗   ██╗███╗   ██╗ █████╗ ██████╗ ███████╗███████╗
@@ -11,7 +17,17 @@ __logo__ = f"""
 \033[33m⚡ \033[35msynapse \033[36m{__version__}\033[0m
 """
 
-from synapse_p2p.messages import RemoteProcedureCall
+from synapse_p2p.client import Client
+from synapse_p2p.messages import RemoteProcedureCall, RPCError, RPCRequest, RPCResponse
 from synapse_p2p.server import Server
 
-__all__ = ["RemoteProcedureCall", "Server", "__logo__", "__version__"]
+__all__ = [
+    "Client",
+    "RPCError",
+    "RPCRequest",
+    "RPCResponse",
+    "RemoteProcedureCall",
+    "Server",
+    "__logo__",
+    "__version__",
+]
