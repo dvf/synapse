@@ -346,7 +346,6 @@ wheels = [
 
 [[package]]
 name = "synapse-p2p"
-version = "0.1.4"
 source = { editable = "." }
 dependencies = [
     { name = "loguru" },

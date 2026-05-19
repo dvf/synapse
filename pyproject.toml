@@ -1,6 +1,6 @@
 [project]
 name = "synapse-p2p"
-version = "0.1.4"
+dynamic = ["version"]
 description = "A rapid RPC framework for building p2p networks"
 readme = "README.md"
 authors = [{ name = "Daniel van Flymen", email = "vanflymen@gmail.com" }]
@@ -23,11 +23,21 @@ dev = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "uv-dynamic-versioning"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
 
 [tool.hatch.build.targets.wheel]
 packages = ["synapse_p2p"]
+
+[tool.uv-dynamic-versioning]
+vcs = "git"
+fallback-version = "0.0.0"
+style = "semver"
+pattern = "default-unprefixed"
+strict = true
 
 [tool.ruff]
 line-length = 100
