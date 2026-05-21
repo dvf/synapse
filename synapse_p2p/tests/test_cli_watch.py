@@ -9,11 +9,11 @@ from synapse_p2p import cli
 class FakeLive:
     instances: list["FakeLive"] = []
 
-    def __init__(self, renderable: str, *, refresh_per_second: int, screen: bool) -> None:
+    def __init__(self, renderable: Any, *, refresh_per_second: int, screen: bool) -> None:
         self.renderable = renderable
         self.refresh_per_second = refresh_per_second
         self.screen = screen
-        self.updates: list[str] = []
+        self.updates: list[Any] = []
         FakeLive.instances.append(self)
 
     def __enter__(self) -> "FakeLive":
@@ -22,7 +22,7 @@ class FakeLive:
     def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
         return None
 
-    def update(self, renderable: str) -> None:
+    def update(self, renderable: Any) -> None:
         self.updates.append(renderable)
 
 
@@ -40,6 +40,7 @@ async def test_watch_uses_rich_live_alternate_screen(monkeypatch):
             False,
             True,
             0.01,
+            False,
         )
     )
     await asyncio.sleep(0.03)
@@ -50,4 +51,6 @@ async def test_watch_uses_rich_live_alternate_screen(monkeypatch):
     live = FakeLive.instances[0]
     assert live.screen is True
     assert live.updates
-    assert "watching foo.electron.network" in live.updates[-1]
+    assert isinstance(live.updates[-1], cli.Layout)
+    assert live.updates[-1]["swarm"] is not None
+    assert live.updates[-1]["chatter"] is not None

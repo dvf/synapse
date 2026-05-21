@@ -150,15 +150,24 @@ class Node:
         return address, int(port)
 
     async def _dispatch(self, rpc: RPCRequest, connection: Connection):
+        kwargs = dict(rpc.kwargs)
+        if "broadcast" in kwargs and isinstance(kwargs["broadcast"], dict):
+            kwargs["broadcast"] = Broadcast.from_dict(kwargs["broadcast"])
+            self._emit_lifecycle(
+                "broadcast.received",
+                {
+                    "endpoint": rpc.endpoint,
+                    "broadcast": kwargs["broadcast"],
+                    "args": list(rpc.args),
+                    "kwargs": {key: value for key, value in kwargs.items() if key != "broadcast"},
+                },
+            )
+
         endpoint = self.endpoint_directory.get(rpc.endpoint)
         if endpoint is None:
             raise InvalidMessageError(f"Unregistered endpoint called: {rpc.endpoint}")
 
         signature = inspect.signature(endpoint)
-        kwargs = dict(rpc.kwargs)
-        if "broadcast" in kwargs and isinstance(kwargs["broadcast"], dict):
-            kwargs["broadcast"] = Broadcast.from_dict(kwargs["broadcast"])
-
         injected = {"rpc": rpc, "connection": connection}
         for name, value in injected.items():
             if name in signature.parameters:
@@ -305,7 +314,7 @@ class Node:
         """Register a lifecycle event handler.
 
         Supported events are ``peer.joined``, ``peer.heartbeat``, ``peer.offline``,
-        and ``broadcast.reply``.
+        ``broadcast.received``, and ``broadcast.reply``.
         """
 
         def decorator(
@@ -397,12 +406,23 @@ class Node:
         return broadcast
 
     async def reply(self, broadcast: Broadcast, result: Any) -> None:
-        """Reply to a broadcast using its nonce and origin peer."""
-        await Client.from_peer(broadcast.origin).call(
-            "_synapse.broadcast.reply",
-            broadcast.nonce,
-            self.self_peer().to_dict(),
-            result=result,
+        """Reply to a broadcast using its nonce and share the reply with known peers."""
+        recipients = {broadcast.origin.id: broadcast.origin}
+        for peer in self.peers.values():
+            recipients.setdefault(peer.id, peer)
+        recipients.pop(self.node_id, None)
+
+        async def send(peer: Peer) -> None:
+            await Client.from_peer(peer).call(
+                "_synapse.broadcast.reply",
+                broadcast.nonce,
+                self.self_peer().to_dict(),
+                result=result,
+            )
+
+        await asyncio.gather(
+            *(send(peer) for peer in recipients.values()),
+            return_exceptions=True,
         )
 
     def replies(self, broadcast: Broadcast | str) -> list[BroadcastReply]:
@@ -493,10 +513,34 @@ class Node:
         async def broadcast_reply(nonce: str, peer: dict, result=None) -> dict:
             incoming = Peer.from_dict(peer)
             self._validate_peer_membership(incoming)
+
+            replies = self.broadcast_replies.setdefault(nonce, [])
+            if any(reply.peer.id == incoming.id for reply in replies):
+                return {"ok": True}
+
             self.add_peer(incoming)
             reply = BroadcastReply(nonce=nonce, peer=incoming, result=result)
-            self.broadcast_replies.setdefault(nonce, []).append(reply)
+            replies.append(reply)
             self._emit_lifecycle("broadcast.reply", reply)
+
+            recipients = {
+                known.id: known
+                for known in self.peers.values()
+                if known.id not in {self.node_id, incoming.id}
+            }
+
+            async def forward(known: Peer) -> None:
+                await Client.from_peer(known).call(
+                    "_synapse.broadcast.reply",
+                    nonce,
+                    incoming.to_dict(),
+                    result=result,
+                )
+
+            await asyncio.gather(
+                *(forward(known) for known in recipients.values()),
+                return_exceptions=True,
+            )
             return {"ok": True}
 
     def endpoint(

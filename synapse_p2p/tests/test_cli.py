@@ -1,11 +1,29 @@
+import time
+
 import pytest
 
 from synapse_p2p import Broadcast, Node, Peer
-from synapse_p2p.cli import _broadcast, _parse_seed, _peer_line, _swarm_label, _swarm_text
+from synapse_p2p.cli import (
+    CHATTER_LIMIT,
+    OFFLINE_PEER_RETENTION,
+    _broadcast,
+    _chatter_text,
+    _format_result,
+    _parse_seed,
+    _peer_label,
+    _peer_line,
+    _short_nonce,
+    _swarm_label,
+    _swarm_text,
+)
 
 
 def test_parse_seed_defaults_to_empty_list():
     assert _parse_seed(None) == []
+
+
+def test_offline_peer_retention_is_a_few_minutes():
+    assert OFFLINE_PEER_RETENTION == 180
 
 
 def test_swarm_label_hides_default_team():
@@ -27,12 +45,72 @@ def test_swarm_text_contains_peers_and_recent_events_without_terminal_codes():
 
     text = _swarm_text(node, capabilities=True, events=["joined: reviewer"])
 
-    assert "watching foo.electron.network" in text
+    assert "watching" in text
+    assert "foo.electron.network" in text
+    assert "self:" in text
     assert "reviewer" in text
+    assert "127.0.0.1:8888" in text
     assert "caps=code-review" in text
     assert "joined: reviewer" in text
     assert "\033" not in text
 
+
+
+def test_peer_label_includes_name_ip_and_port():
+    peer = Peer(id="peer-1", name="reviewer", address="127.0.0.1", port=9999)
+
+    assert _peer_label(peer) == "reviewer @ 127.0.0.1:9999"
+
+
+def test_event_uses_readable_pill_label():
+    from synapse_p2p.cli import _event
+
+    text = _event("joined", "reviewer @ 127.0.0.1:9999")
+
+    assert "JOINED" in text
+    assert "on dark_green" in text
+
+
+def test_chatter_helpers_compact_nonce_and_result():
+    assert _short_nonce("019e4ab0-1d0d-709a") == "019e4ab0"
+    assert _format_result({"from": "coder", "answer": "I can implement it."}) == (
+        "coder: I can implement it."
+    )
+
+
+def test_chatter_text_shows_recent_events():
+    events = [f"event {index}" for index in range(CHATTER_LIMIT + 5)]
+
+    text = _chatter_text(events)
+
+    assert f"event {CHATTER_LIMIT + 4}" in text
+    assert "event 0" not in text
+
+
+def test_peer_line_shows_stale_dot_after_timeout():
+    peer = Peer(
+        id="peer-1",
+        name="reviewer",
+        address="127.0.0.1",
+        port=9999,
+        last_seen=time.time() - 60,
+    )
+
+    assert _peer_line(peer, capabilities=False, timeout=20).startswith("[yellow]●[/]")
+    assert _peer_line(peer, capabilities=False, timeout=20, offline=True).startswith("[red]●[/]")
+
+
+def test_peer_line_pulses_after_recent_heartbeat():
+    peer = Peer(
+        id="peer-1",
+        name="reviewer",
+        address="127.0.0.1",
+        port=9999,
+        last_seen=time.time(),
+    )
+
+    assert _peer_line(peer, capabilities=False).startswith("[bold bright_green]●[/]")
+    assert _peer_line(peer, capabilities=False, pulse_window=0).startswith("[green3]●[/]")
 
 
 def test_peer_line_can_include_or_hide_capabilities():

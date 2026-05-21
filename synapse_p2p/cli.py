@@ -1,9 +1,13 @@
 import asyncio
+import time
 from collections import defaultdict
 from typing import Annotated, Any
 
 import typer
+from rich.layout import Layout
 from rich.live import Live
+from rich.markup import escape
+from rich.panel import Panel
 from zeroconf import ServiceStateChange
 from zeroconf.asyncio import AsyncServiceBrowser, AsyncZeroconf
 
@@ -17,15 +21,99 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
+OFFLINE_PEER_RETENTION = 180
+CHATTER_LIMIT = 80
+
 
 def _parse_seed(seed: list[str] | None) -> list[Seed]:
     return list(seed or [])
 
 
-def _peer_line(peer: Peer, *, capabilities: bool) -> str:
-    label = peer.name or peer.id[:8]
-    caps = f" caps={','.join(peer.capabilities)}" if capabilities and peer.capabilities else ""
-    return f"- {label:<16} {peer.address}:{peer.port:<5} {peer.node_kind.value}{caps}"
+def _online_dot(
+    last_seen: float,
+    timeout: float,
+    *,
+    offline: bool = False,
+    pulse_window: float = 0.25,
+) -> str:
+    if offline:
+        return "[red]●[/]"
+    age = time.time() - last_seen
+    if age <= pulse_window:
+        return "[bold bright_green]●[/]"
+    if age <= timeout:
+        return "[green3]●[/]"
+    return "[yellow]●[/]"
+
+
+def _short_nonce(nonce: str) -> str:
+    return nonce.split("-", 1)[0]
+
+
+def _format_result(result: Any) -> str:
+    if isinstance(result, dict):
+        source = result.get("from")
+        answer = result.get("answer")
+        if source and answer:
+            return f"{source}: {answer}"
+        if answer:
+            return str(answer)
+    return str(result)
+
+
+def _event(kind: str, text: str) -> str:
+    styles = {
+        "joined": "bold white on dark_green",
+        "heartbeat": "grey50 on grey15",
+        "offline": "bold white on dark_red",
+        "message": "bold white on purple4",
+        "reply": "bold black on bright_cyan",
+    }
+    labels = {
+        "joined": "JOINED",
+        "heartbeat": "BEAT",
+        "offline": "OFFLINE",
+        "message": "ASK",
+        "reply": "REPLY",
+    }
+    style = styles.get(kind, "bold white on grey23")
+    label = labels.get(kind, kind.upper())
+    pill = f"[{style}] {label:^7} [/]"
+    body = f"[grey50]{escape(text)}[/]" if kind == "heartbeat" else escape(text)
+    return f"{pill} {body}"
+
+
+def _peer_addr(peer: Peer) -> str:
+    return f"{peer.address}:{peer.port}"
+
+
+def _peer_name(peer: Peer) -> str:
+    return peer.name or peer.id[:8]
+
+
+def _peer_label(peer: Peer) -> str:
+    return f"{_peer_name(peer)} @ {_peer_addr(peer)}"
+
+
+def _peer_line(
+    peer: Peer,
+    *,
+    capabilities: bool,
+    timeout: float = 20,
+    offline: bool = False,
+    pulse_window: float = 0.4,
+    pulse_until: float | None = None,
+) -> str:
+    pulsing = pulse_until is not None and time.time() <= pulse_until
+    last_seen = time.time() if pulsing else peer.last_seen
+    dot = _online_dot(last_seen, timeout, offline=offline, pulse_window=pulse_window)
+    name = escape(f"{_peer_name(peer):<16}")
+    address = escape(f"{_peer_addr(peer):<21}")
+    kind = escape(peer.node_kind.value)
+    caps = ""
+    if capabilities and peer.capabilities:
+        caps = f" [dim]caps={escape(','.join(peer.capabilities))}[/]"
+    return f"{dot} [bold]{name}[/] [cyan]{address}[/] [dim]{kind}[/]{caps}"
 
 
 def _swarm_label(swarm: str | None, team: str | None) -> str:
@@ -34,29 +122,106 @@ def _swarm_label(swarm: str | None, team: str | None) -> str:
     return swarm or "-"
 
 
-def _swarm_text(node: Node, *, capabilities: bool, events: list[str]) -> str:
+def _swarm_text(
+    node: Node,
+    *,
+    capabilities: bool,
+    events: list[str],
+    peers: dict[str, Peer] | None = None,
+    offline_peer_ids: set[str] | None = None,
+    pulse_until: dict[str, float] | None = None,
+) -> str:
+    visible_peers = peers if peers is not None else node.peers
+    offline_ids = offline_peer_ids or set()
+    pulses = pulse_until or {}
     lines = [
-        f"watching {_swarm_label(node.swarm, node.team)}",
-        f"self: {node.name or node.node_id[:8]} @ {node.address}:{node.port}",
+        f"[bold]watching[/] [cyan]{escape(_swarm_label(node.swarm, node.team))}[/]",
+        f"[green3]●[/] self: [bold]{escape(node.name or node.node_id[:8])}[/] "
+        f"@ [cyan]{escape(f'{node.address}:{node.port}')}[/]",
         "",
     ]
 
-    if node.peers:
-        lines.append("peers:")
-        for peer in sorted(node.peers.values(), key=lambda item: item.name or item.id):
-            lines.append(_peer_line(peer, capabilities=capabilities))
+    if visible_peers:
+        lines.append("[bold]peers[/]")
+        for peer in sorted(visible_peers.values(), key=lambda item: item.name or item.id):
+            lines.append(
+                _peer_line(
+                    peer,
+                    capabilities=capabilities,
+                    timeout=node.peer_timeout,
+                    offline=peer.id in offline_ids,
+                    pulse_until=pulses.get(peer.id),
+                )
+            )
     else:
-        lines.append("peers: none yet")
+        lines.append("[dim]peers: none yet[/]")
 
     if events:
         lines.extend(["", "events:", *events[-8:]])
 
-    lines.extend(["", "press Ctrl+C to stop"])
+    lines.extend(["", "[dim]press Ctrl+C to stop[/]"])
     return "\n".join(lines)
 
 
-def _render_swarm(node: Node, *, capabilities: bool, events: list[str]) -> str:
-    return _swarm_text(node, capabilities=capabilities, events=events)
+def _chatter_text(events: list[str]) -> str:
+    if not events:
+        return "quiet so far"
+    return "\n".join(events[-CHATTER_LIMIT:])
+
+
+def _render_watch(
+    node: Node,
+    *,
+    capabilities: bool,
+    events: list[str],
+    peers: dict[str, Peer] | None = None,
+    offline_peer_ids: set[str] | None = None,
+    pulse_until: dict[str, float] | None = None,
+) -> Layout:
+    layout = Layout(name="watch")
+    layout.split_row(
+        Layout(
+            Panel(
+                _swarm_text(
+                    node,
+                    capabilities=capabilities,
+                    events=[],
+                    peers=peers,
+                    offline_peer_ids=offline_peer_ids,
+                    pulse_until=pulse_until,
+                ),
+                title="[bold cyan]swarm[/]",
+                border_style="cyan",
+            ),
+            name="swarm",
+            ratio=1,
+        ),
+        Layout(
+            Panel(_chatter_text(events), title="[bold magenta]chatter[/]", border_style="magenta"),
+            name="chatter",
+            ratio=1,
+        ),
+    )
+    return layout
+
+
+def _render_swarm(
+    node: Node,
+    *,
+    capabilities: bool,
+    events: list[str],
+    peers: dict[str, Peer] | None = None,
+    offline_peer_ids: set[str] | None = None,
+    pulse_until: dict[str, float] | None = None,
+) -> Layout:
+    return _render_watch(
+        node,
+        capabilities=capabilities,
+        events=events,
+        peers=peers,
+        offline_peer_ids=offline_peer_ids,
+        pulse_until=pulse_until,
+    )
 
 
 async def _watch(
@@ -67,6 +232,7 @@ async def _watch(
     mdns: bool,
     capabilities: bool,
     interval: float,
+    show_heartbeats: bool,
 ) -> None:
     node = Node(
         name=name,
@@ -76,37 +242,103 @@ async def _watch(
         capabilities=["watch"],
         seeds=seeds,
         mdns=mdns,
+        heartbeat_interval=2,
+        peer_timeout=6,
     )
     events: list[str] = []
+    seen_peers: dict[str, Peer] = {}
+    offline_peer_ids: set[str] = set()
+    offline_since: dict[str, float] = {}
+    pulse_until: dict[str, float] = {}
 
     @node.endpoint("synapse.message", description="Receive a CLI swarm message")
     async def receive(message: str, broadcast: Broadcast) -> dict[str, str]:
-        events.append(f"message {broadcast.nonce} from {broadcast.origin.name}: {message}")
+        events.append(
+            _event("message", f"{broadcast.nonce} from {_peer_label(broadcast.origin)}: {message}")
+        )
         await node.reply(broadcast, {"received_by": node.name})
         return {"ok": "true"}
 
     @node.on("peer.joined")
     async def joined(peer: Peer) -> None:
-        events.append(f"joined: {peer.name or peer.id[:8]} @ {peer.address}:{peer.port}")
+        seen_peers[peer.id] = peer
+        offline_peer_ids.discard(peer.id)
+        offline_since.pop(peer.id, None)
+        pulse_until[peer.id] = time.time() + 0.4
+        events.append(_event("joined", _peer_label(peer)))
+
+    @node.on("peer.heartbeat")
+    async def heartbeat(peer: Peer) -> None:
+        seen_peers[peer.id] = peer
+        offline_peer_ids.discard(peer.id)
+        offline_since.pop(peer.id, None)
+        pulse_until[peer.id] = time.time() + 0.4
+        if show_heartbeats:
+            events.append(_event("heartbeat", f"{_peer_name(peer)}  {_peer_addr(peer)}"))
 
     @node.on("peer.offline")
     async def offline(peer: Peer) -> None:
-        events.append(f"offline: {peer.name or peer.id[:8]}")
+        seen_peers[peer.id] = peer
+        offline_peer_ids.add(peer.id)
+        offline_since[peer.id] = time.time()
+        pulse_until.pop(peer.id, None)
+        events.append(_event("offline", _peer_label(peer)))
+
+    @node.on("broadcast.received")
+    async def broadcast_received(event: dict[str, Any]) -> None:
+        broadcast = event["broadcast"]
+        args = " ".join(str(arg) for arg in event.get("args", []))
+        text = (
+            f"{_short_nonce(broadcast.nonce)}  {_peer_name(broadcast.origin)} → "
+            f"{event['endpoint']}: {args}"
+        )
+        events.append(_event("message", text))
 
     @node.on("broadcast.reply")
     async def reply(reply: BroadcastReply) -> None:
-        events.append(f"reply {reply.nonce} from {reply.peer.name}: {reply.result}")
+        text = (
+            f"{_short_nonce(reply.nonce)}  {_peer_name(reply.peer)} → "
+            f"{_format_result(reply.result)}"
+        )
+        events.append(_event("reply", text))
 
     await node.start()
     await node.join()
     try:
         with Live(
-            _render_swarm(node, capabilities=capabilities, events=events),
-            refresh_per_second=4,
+            _render_swarm(
+                node,
+                capabilities=capabilities,
+                events=events,
+                peers=seen_peers,
+                offline_peer_ids=offline_peer_ids,
+                pulse_until=pulse_until,
+            ),
+            refresh_per_second=8,
             screen=True,
         ) as live:
             while True:
-                live.update(_render_swarm(node, capabilities=capabilities, events=events))
+                now = time.time()
+                expired = [
+                    peer_id
+                    for peer_id, since in offline_since.items()
+                    if now - since > OFFLINE_PEER_RETENTION
+                ]
+                for peer_id in expired:
+                    offline_since.pop(peer_id, None)
+                    offline_peer_ids.discard(peer_id)
+                    seen_peers.pop(peer_id, None)
+
+                live.update(
+                    _render_swarm(
+                        node,
+                        capabilities=capabilities,
+                        events=events,
+                        peers=seen_peers,
+                        offline_peer_ids=offline_peer_ids,
+                        pulse_until=pulse_until,
+                    )
+                )
                 await asyncio.sleep(interval)
     finally:
         await node.stop()
@@ -136,9 +368,15 @@ def watch(
         float,
         typer.Option("--interval", help="Refresh interval in seconds"),
     ] = 0.5,
+    show_heartbeats: Annotated[
+        bool,
+        typer.Option("--show-heartbeats", help="Show heartbeat events in chatter"),
+    ] = False,
 ) -> None:
     """Watch a swarm in real time."""
-    asyncio.run(_watch(swarm, team, name, _parse_seed(seed), mdns, capabilities, interval))
+    asyncio.run(
+        _watch(swarm, team, name, _parse_seed(seed), mdns, capabilities, interval, show_heartbeats)
+    )
 
 
 async def _broadcast(
