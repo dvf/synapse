@@ -7,7 +7,6 @@ coder = Node(
     role="coder",
     swarm="foo.electron.network",
     capabilities=["python", "implementation"],
-    address="127.0.0.1",
     seeds=["127.0.0.1:9000"],
     heartbeat_interval=5,
     peer_timeout=20,

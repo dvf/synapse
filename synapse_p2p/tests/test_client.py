@@ -6,7 +6,7 @@ from synapse_p2p.types import Peer
 
 @pytest.mark.asyncio
 async def test_client_from_peer_calls_peer_endpoint():
-    node = Node(name="worker", address="127.0.0.1", heartbeat_interval=None)
+    node = Node(name="worker", bind="127.0.0.1", heartbeat_interval=None)
 
     @node.endpoint("hello")
     async def hello() -> str:
@@ -24,7 +24,7 @@ async def test_client_from_peer_calls_peer_endpoint():
 
 @pytest.mark.asyncio
 async def test_client_peers_returns_peer_dataclasses():
-    node = Node(address="127.0.0.1", heartbeat_interval=None)
+    node = Node(bind="127.0.0.1", heartbeat_interval=None)
     node.add_peer(Peer(id="worker", name="worker", address="127.0.0.1", port=9999))
     tcp = await node.start()
     host, port = tcp.sockets[0].getsockname()[:2]
@@ -39,7 +39,7 @@ async def test_client_peers_returns_peer_dataclasses():
 
 @pytest.mark.asyncio
 async def test_client_peers_rejects_invalid_response():
-    node = Node(address="127.0.0.1", heartbeat_interval=None)
+    node = Node(bind="127.0.0.1", heartbeat_interval=None)
 
     @node.endpoint("_synapse.peers", publish=False)
     async def peers_override():

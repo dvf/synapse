@@ -7,7 +7,6 @@ reviewer = Node(
     role="reviewer",
     swarm="foo.electron.network",
     capabilities=["code-review", "risk-analysis"],
-    address="127.0.0.1",
     seeds=["127.0.0.1:9000"],
     heartbeat_interval=5,
     peer_timeout=20,

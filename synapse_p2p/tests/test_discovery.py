@@ -15,7 +15,7 @@ async def test_synapse_info_and_peers_include_swarm_and_team():
         name="bootstrap",
         swarm="foo.electron.network",
         team="foo",
-        address="127.0.0.1",
+        bind="127.0.0.1",
     )
     tcp = await node.start()
     host, port = tcp.sockets[0].getsockname()[:2]
@@ -39,7 +39,7 @@ async def test_join_adds_peer_and_returns_known_peers_in_swarm_team():
         name="bootstrap",
         swarm="foo.electron.network",
         team="foo",
-        address="127.0.0.1",
+        bind="127.0.0.1",
     )
     bootstrap.add_peer(
         Peer(
@@ -83,7 +83,7 @@ async def test_join_uses_seeds_and_imports_peers():
         name="bootstrap",
         swarm="foo.electron.network",
         team="foo",
-        address="127.0.0.1",
+        bind="127.0.0.1",
     )
     bootstrap.add_peer(
         Peer(
@@ -104,7 +104,7 @@ async def test_join_uses_seeds_and_imports_peers():
         capabilities=["python"],
         swarm="foo.electron.network",
         team="foo",
-        address="127.0.0.1",
+        bind="127.0.0.1",
         seeds=[f"{host}:{port}"],
     )
 
@@ -124,7 +124,7 @@ async def test_join_rejects_different_swarm():
     bootstrap = Node(
         swarm="foo.electron.network",
         team="foo",
-        address="127.0.0.1",
+        bind="127.0.0.1",
     )
     tcp = await bootstrap.start()
     host, port = tcp.sockets[0].getsockname()[:2]
@@ -150,7 +150,7 @@ async def test_join_rejects_different_team():
     bootstrap = Node(
         swarm="foo.electron.network",
         team="foo",
-        address="127.0.0.1",
+        bind="127.0.0.1",
     )
     tcp = await bootstrap.start()
     host, port = tcp.sockets[0].getsockname()[:2]

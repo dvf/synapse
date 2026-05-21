@@ -12,8 +12,7 @@ node = Node(
 
 async def main() -> None:
     await node.start()
-    await node.join()
-    await asyncio.sleep(2)
+    await node.join(wait=1)
 
     broadcast = await node.broadcast("team.question", "Who can help ship this feature?")
     await asyncio.sleep(1)

@@ -169,6 +169,8 @@ await node.join()
 
 A seed is just another Synapse node. Once joined, nodes exchange known peers.
 
+By default, nodes listen on `0.0.0.0` and advertise an auto-detected reachable local address. For same-machine-only experiments, use `bind="127.0.0.1"`.
+
 ---
 
 ## Capabilities

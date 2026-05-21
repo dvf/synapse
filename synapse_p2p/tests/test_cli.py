@@ -54,7 +54,8 @@ async def test_cli_broadcast_streams_replies_from_seed_peer(monkeypatch):
     worker = Node(
         name="worker",
         swarm="foo.electron.network",
-        address="127.0.0.1",
+        bind="127.0.0.1",
+        advertise="127.0.0.1",
         heartbeat_interval=None,
     )
 
@@ -73,10 +74,10 @@ async def test_cli_broadcast_streams_replies_from_seed_peer(monkeypatch):
             "default",
             "hello",
             "speaker",
-            [f"{host}:{port}"],
+            [("127.0.0.1", port)],
             False,
             0,
-            0.2,
+            1,
         )
     finally:
         await worker.stop()

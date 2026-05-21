@@ -14,7 +14,7 @@ async def test_node_info_and_capabilities_are_discoverable():
             "python",
             Capability(name="code-review", description="Review code for quality"),
         ],
-        address="127.0.0.1",
+        bind="127.0.0.1",
         port=0,
     )
 

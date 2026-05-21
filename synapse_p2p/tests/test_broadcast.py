@@ -12,7 +12,7 @@ async def test_broadcast_delivers_typed_broadcast_and_collects_later_reply():
         role="coordinator",
         swarm="foo.electron.network",
         team="foo",
-        address="127.0.0.1",
+        bind="127.0.0.1",
         heartbeat_interval=None,
     )
     worker = Node(
@@ -20,7 +20,7 @@ async def test_broadcast_delivers_typed_broadcast_and_collects_later_reply():
         role="worker",
         swarm="foo.electron.network",
         team="foo",
-        address="127.0.0.1",
+        bind="127.0.0.1",
         heartbeat_interval=None,
     )
     reply_received = asyncio.Event()
@@ -58,7 +58,7 @@ async def test_broadcast_reply_endpoint_validates_membership():
     origin = Node(
         swarm="foo.electron.network",
         team="foo",
-        address="127.0.0.1",
+        bind="127.0.0.1",
         heartbeat_interval=None,
     )
     tcp = await origin.start()

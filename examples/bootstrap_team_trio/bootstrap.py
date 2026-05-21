@@ -6,7 +6,6 @@ bootstrap = Node(
     name="bootstrap",
     kind=NodeKind.BOOTSTRAP,
     swarm="foo.electron.network",
-    address="127.0.0.1",
     port=9000,
     heartbeat_interval=5,
     peer_timeout=20,

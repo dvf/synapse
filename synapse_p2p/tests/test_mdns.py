@@ -3,7 +3,7 @@ from typing import Any, cast
 
 import pytest
 
-from synapse_p2p import Node
+from synapse_p2p import Node, mdns
 from synapse_p2p.mdns import SERVICE_TYPE, MdnsDiscovery
 
 
@@ -15,6 +15,37 @@ class FakeInfo:
 
     def parsed_addresses(self):
         return self._addresses
+
+
+@pytest.mark.asyncio
+async def test_mdns_browser_starts_with_no_initial_delay(monkeypatch):
+    browser_calls: list[dict[str, object]] = []
+
+    class FakeAsyncZeroconf:
+        zeroconf = object()
+
+        async def async_register_service(self, info, allow_name_change=False):
+            return None
+
+    class FakeBrowser:
+        def __init__(self, zeroconf, service_type, *, handlers, delay):
+            browser_calls.append(
+                {"service_type": service_type, "handlers": handlers, "delay": delay}
+            )
+
+    monkeypatch.setattr(mdns, "AsyncZeroconf", FakeAsyncZeroconf)
+    monkeypatch.setattr(mdns, "AsyncServiceBrowser", FakeBrowser)
+
+    discovery = MdnsDiscovery(Node(name="alpha", swarm="foo.electron.network"))
+    await discovery.start()
+
+    assert browser_calls == [
+        {
+            "service_type": SERVICE_TYPE,
+            "handlers": [discovery._on_service_state_change],
+            "delay": 0,
+        }
+    ]
 
 
 @pytest.mark.asyncio
@@ -170,12 +201,35 @@ def test_mdns_callback_accepts_zeroconf_keyword_arguments():
 
 
 @pytest.mark.asyncio
+async def test_mdns_discover_can_wait_after_start(monkeypatch):
+    node = Node(mdns=True, heartbeat_interval=None)
+    discovery = MdnsDiscovery(node)
+    started = False
+    sleeps: list[float] = []
+
+    async def fake_start() -> None:
+        nonlocal started
+        started = True
+        discovery.zeroconf = cast(Any, object())
+
+    async def fake_sleep(wait: float) -> None:
+        sleeps.append(wait)
+
+    monkeypatch.setattr(discovery, "start", fake_start)
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+    await discovery.discover(wait=0.25)
+
+    assert started is True
+    assert sleeps == [0.25]
+
+
+@pytest.mark.asyncio
 async def test_node_join_starts_mdns_discovery_without_seeds():
     node = Node(mdns=True, heartbeat_interval=None)
     started = asyncio.Event()
 
     class FakeDiscovery:
-        async def discover(self):
+        async def discover(self, wait: float = 0):
             started.set()
 
         async def stop(self):

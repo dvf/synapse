@@ -7,7 +7,6 @@ planner = Node(
     role="planner",
     swarm="foo.electron.network",
     capabilities=["planning", "delegation"],
-    address="127.0.0.1",
     seeds=["127.0.0.1:9000"],
     heartbeat_interval=5,
     peer_timeout=20,

@@ -107,7 +107,7 @@ async def test_joined_nodes_exchange_heartbeats():
         name="bootstrap",
         swarm="foo.electron.network",
         team="foo",
-        address="127.0.0.1",
+        bind="127.0.0.1",
         heartbeat_interval=0.01,
         peer_timeout=1,
     )
@@ -119,7 +119,7 @@ async def test_joined_nodes_exchange_heartbeats():
         role="worker",
         swarm="foo.electron.network",
         team="foo",
-        address="127.0.0.1",
+        bind="127.0.0.1",
         seeds=[(host, port)],
         heartbeat_interval=0.01,
         peer_timeout=1,

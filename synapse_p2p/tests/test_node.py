@@ -35,7 +35,7 @@ def test_background_decorator_registers_task(node):
 
 
 async def _send_message(node: Node, message) -> RPCResponse:
-    tcp = await asyncio.start_server(node.handle_data, node.address, node.port)
+    tcp = await asyncio.start_server(node.handle_data, node.bind, node.port)
     host, port = tcp.sockets[0].getsockname()[:2]
 
     async with tcp:
@@ -56,7 +56,7 @@ async def _send_rpc(node: Node, rpc: RemoteProcedureCall) -> RPCResponse:
 
 @pytest.mark.asyncio
 async def test_node_round_trip_over_tcp():
-    node = Node(address="127.0.0.1")
+    node = Node(bind="127.0.0.1")
 
     @node.endpoint("sum")
     async def _sum(a, b):
@@ -68,13 +68,13 @@ async def test_node_round_trip_over_tcp():
 
 @pytest.mark.asyncio
 async def test_client_call_over_tcp():
-    node = Node(address="127.0.0.1")
+    node = Node(bind="127.0.0.1")
 
     @node.endpoint("sum")
     async def _sum(a, b, scale=1):
         return (a + b) * scale
 
-    tcp = await asyncio.start_server(node.handle_data, node.address, node.port)
+    tcp = await asyncio.start_server(node.handle_data, node.bind, node.port)
     host, port = tcp.sockets[0].getsockname()[:2]
 
     async with tcp:
@@ -85,7 +85,7 @@ async def test_client_call_over_tcp():
 
 @pytest.mark.asyncio
 async def test_unknown_endpoint_responds_bad_request():
-    node = Node(address="127.0.0.1")
+    node = Node(bind="127.0.0.1")
     response = await _send_rpc(node, RPCRequest(id="abc", endpoint="nope"))
     assert response.ok is False
     assert response.error is not None
@@ -94,7 +94,7 @@ async def test_unknown_endpoint_responds_bad_request():
 
 @pytest.mark.asyncio
 async def test_endpoint_exception_responds_internal_error_without_killing_node():
-    node = Node(address="127.0.0.1")
+    node = Node(bind="127.0.0.1")
 
     @node.endpoint("boom")
     async def boom(**kwargs):
@@ -108,7 +108,7 @@ async def test_endpoint_exception_responds_internal_error_without_killing_node()
 
 @pytest.mark.asyncio
 async def test_node_injects_rpc_and_connection_when_requested():
-    node = Node(address="127.0.0.1")
+    node = Node(bind="127.0.0.1")
 
     @node.endpoint("inspect")
     async def inspect_context(rpc, connection):
@@ -121,7 +121,7 @@ async def test_node_injects_rpc_and_connection_when_requested():
 
 @pytest.mark.asyncio
 async def test_node_rejects_response_sent_as_request():
-    node = Node(address="127.0.0.1")
+    node = Node(bind="127.0.0.1")
     response = await _send_message(node, RPCResponse(id="abc", ok=True, result="wrong-way"))
     assert response.ok is False
     assert response.error is not None
@@ -130,9 +130,9 @@ async def test_node_rejects_response_sent_as_request():
 
 @pytest.mark.asyncio
 async def test_client_raises_on_rpc_error():
-    node = Node(address="127.0.0.1")
+    node = Node(bind="127.0.0.1")
 
-    tcp = await asyncio.start_server(node.handle_data, node.address, node.port)
+    tcp = await asyncio.start_server(node.handle_data, node.bind, node.port)
     host, port = tcp.sockets[0].getsockname()[:2]
 
     async with tcp:
@@ -177,7 +177,7 @@ async def test_client_timeout():
 
 @pytest.mark.asyncio
 async def test_node_start_and_stop_lifecycle():
-    node = Node(address="127.0.0.1")
+    node = Node(bind="127.0.0.1")
 
     @node.endpoint("ping")
     async def ping():

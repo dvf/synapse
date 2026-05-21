@@ -16,6 +16,7 @@ from synapse_p2p.exceptions import InvalidMessageError
 from synapse_p2p.framing import read_frame, write_frame
 from synapse_p2p.mdns import MdnsDiscovery
 from synapse_p2p.messages import RPCError, RPCRequest, RPCResponse
+from synapse_p2p.network import advertised_address
 from synapse_p2p.serializers import BaseRPCSerializer, MessagePackRPCSerializer
 from synapse_p2p.types import (
     BackgroundTask,
@@ -59,8 +60,9 @@ Seed = str | tuple[str, int]
 class Node:
     def __init__(
         self,
-        address: str = "127.0.0.1",
+        bind: str = "0.0.0.0",
         port: int = 0,
+        advertise: str | None = "auto",
         serializer_class: type[BaseRPCSerializer] = MessagePackRPCSerializer,
         max_upload_size: int = 4096,
         node_id: str | None = None,
@@ -76,7 +78,9 @@ class Node:
         heartbeat_interval: float | None = 5,
         peer_timeout: float = 20,
     ) -> None:
-        self.address = address
+        self.bind = bind
+        self.advertise = advertise
+        self.address = advertised_address(bind, advertise)
         self.port = port
         self.node_id = node_id or random_hash()
         self.name = name
@@ -203,7 +207,7 @@ class Node:
         await writer.wait_closed()
 
     def _print_startup(self) -> None:
-        print(f"Listening on {self.address}:{self.port}\n")
+        print(f"Listening on {self.bind}:{self.port} (advertising {self.address})\n")
         print("Registered Endpoints:")
         for endpoint in self.endpoint_directory:
             print(f"- {endpoint}")
@@ -219,10 +223,11 @@ class Node:
         if self._listener is not None:
             return self._listener
 
-        self._listener = await asyncio.start_server(self.handle_data, self.address, self.port)
+        self._listener = await asyncio.start_server(self.handle_data, self.bind, self.port)
         socket = self._listener.sockets[0] if self._listener.sockets else None
         if socket is not None:
-            self.address, self.port = socket.getsockname()[:2]
+            _bound_address, self.port = socket.getsockname()[:2]
+            self.address = advertised_address(self.bind, self.advertise)
         self.background_executor.start()
         if self.mdns is not None:
             await self.mdns.start()
@@ -386,9 +391,9 @@ class Node:
         nonce = broadcast.nonce if isinstance(broadcast, Broadcast) else broadcast
         return list(self.broadcast_replies.get(nonce, []))
 
-    async def _discover(self) -> None:
+    async def _discover(self, *, wait: float = 0) -> None:
         if self.mdns is not None:
-            await self.mdns.discover()
+            await self.mdns.discover(wait=wait)
 
         for address, port in self.seeds:
             try:
@@ -407,8 +412,8 @@ class Node:
             if self_peer:
                 self.add_peer(Peer.from_dict(self_peer))
 
-    async def join(self) -> None:
-        await self._discover()
+    async def join(self, *, wait: float = 0) -> None:
+        await self._discover(wait=wait)
 
     def _register_node_endpoints(self) -> None:
         @self.endpoint("_node.info", publish=False)

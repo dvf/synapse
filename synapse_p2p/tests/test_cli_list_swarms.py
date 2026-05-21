@@ -28,7 +28,14 @@ class FakeAsyncZeroconf:
 
 
 class FakeBrowser:
-    def __init__(self, zeroconf: Any, service_type: str, handlers: list) -> None:
+    def __init__(
+        self,
+        zeroconf: Any,
+        service_type: str,
+        handlers: list,
+        delay: int = 10000,
+    ) -> None:
+        assert delay == 0
         handler = handlers[0]
         handler(
             zeroconf=zeroconf,

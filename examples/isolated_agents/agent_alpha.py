@@ -7,7 +7,6 @@ node = Node(
     role="coordinator",
     swarm="foo.electron.network",
     capabilities=["delegate"],
-    address="127.0.0.1",
     port=9999,
     mdns=True,
 )

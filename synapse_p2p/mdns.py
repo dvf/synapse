@@ -54,6 +54,7 @@ class MdnsDiscovery:
             self.zeroconf.zeroconf,
             SERVICE_TYPE,
             handlers=[self._on_service_state_change],
+            delay=0,
         )
 
     async def stop(self) -> None:
@@ -66,9 +67,11 @@ class MdnsDiscovery:
         self.browser = None
         self.service_info = None
 
-    async def discover(self) -> None:
+    async def discover(self, wait: float = 0) -> None:
         if self.zeroconf is None:
             await self.start()
+        if wait > 0:
+            await asyncio.sleep(wait)
 
     def _service_info(self) -> AsyncServiceInfo:
         name = f"{_service_label(self.node)}-{self.node.node_id[:8]}.{SERVICE_TYPE}"

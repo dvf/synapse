@@ -132,7 +132,10 @@ def watch(
         bool,
         typer.Option("--capabilities/--no-capabilities", help="Show peer capabilities"),
     ] = True,
-    interval: Annotated[float, typer.Option("--interval", help="Refresh interval in seconds")] = 2,
+    interval: Annotated[
+        float,
+        typer.Option("--interval", help="Refresh interval in seconds"),
+    ] = 0.5,
 ) -> None:
     """Watch a swarm in real time."""
     asyncio.run(_watch(swarm, team, name, _parse_seed(seed), mdns, capabilities, interval))
@@ -148,6 +151,7 @@ async def _broadcast(
     discover: float,
     timeout: float | None,
 ) -> None:
+    loopback_only = bool(seeds) and all(seed[0].startswith("127.") for seed in seeds) and not mdns
     node = Node(
         name=name,
         role="speaker",
@@ -156,6 +160,8 @@ async def _broadcast(
         capabilities=["broadcast"],
         seeds=seeds,
         mdns=mdns,
+        bind="127.0.0.1" if loopback_only else "0.0.0.0",
+        advertise="127.0.0.1" if loopback_only else "auto",
     )
     replies: asyncio.Queue[BroadcastReply] = asyncio.Queue()
 
@@ -209,7 +215,7 @@ def broadcast_command(
     discover: Annotated[
         float,
         typer.Option("--discover", help="Seconds to discover peers before broadcasting"),
-    ] = 2,
+    ] = 0.5,
     timeout: Annotated[
         float | None,
         typer.Option("--timeout", help="Stop after this many seconds without a reply"),
@@ -249,7 +255,7 @@ async def _list_swarms(seconds: float) -> None:
         if state_change in {ServiceStateChange.Added, ServiceStateChange.Updated}:
             asyncio.create_task(collect(service_type, name))
 
-    AsyncServiceBrowser(zeroconf.zeroconf, SERVICE_TYPE, handlers=[on_change])
+    AsyncServiceBrowser(zeroconf.zeroconf, SERVICE_TYPE, handlers=[on_change], delay=0)
     await asyncio.sleep(seconds)
     await zeroconf.async_close()
 

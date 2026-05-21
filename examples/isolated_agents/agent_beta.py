@@ -7,7 +7,6 @@ node = Node(
     role="worker",
     swarm="foo.electron.network",
     capabilities=["answer", "echo"],
-    address="127.0.0.1",
     seeds=["127.0.0.1:9999"],
     mdns=True,
 )
