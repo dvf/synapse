@@ -1,6 +1,6 @@
 import asyncio
 
-from examples.pydantic_ai_team.common import SEED, SWARM, make_agent, run_agent
+from examples.pydantic_ai_team.common import SWARM, make_agent, run_agent
 from synapse_p2p import Broadcast, Node
 
 brain, test_model = make_agent(
@@ -13,7 +13,7 @@ node = Node(
     role="product strategist",
     swarm=SWARM,
     capabilities=["positioning", "user-value", "launch"],
-    seeds=[SEED],
+    mdns=True,
 )
 
 

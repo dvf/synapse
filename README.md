@@ -354,8 +354,7 @@ python examples/local_mdns_swarm/reviewer.py
 python examples/local_mdns_swarm/coder.py
 python examples/local_mdns_swarm/ask.py
 
-# Pydantic AI team that actually replies
-python examples/pydantic_ai_team/bootstrap.py
+# Pydantic AI team that actually replies over mDNS
 python examples/pydantic_ai_team/reviewer.py
 python examples/pydantic_ai_team/coder.py
 python examples/pydantic_ai_team/product.py

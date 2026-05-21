@@ -29,7 +29,7 @@ sn --help
 Run examples with `uv run` if you are using uv:
 
 ```bash
-uv run python examples/local_mdns_swarm/reviewer.py
+uv run python local_mdns_swarm/reviewer.py
 ```
 
 Notes:
@@ -63,9 +63,9 @@ A node exposes `sum`. A client calls it.
 ## 2. Two isolated nodes communicate
 
 ```bash
-python examples/isolated_agents/agent_alpha.py
-python examples/isolated_agents/agent_beta.py
-python examples/isolated_agents/ask_alpha.py
+python isolated_agents/agent_alpha.py
+python isolated_agents/agent_beta.py
+python isolated_agents/ask_alpha.py
 ```
 
 Beta joins Alpha through a seed. Both also advertise with mDNS, so `sn list-swarms` can see the swarm. The client asks Alpha; Alpha delegates to Beta.
@@ -73,11 +73,11 @@ Beta joins Alpha through a seed. Both also advertise with mDNS, so `sn list-swar
 ## 3. Bootstrap team trio
 
 ```bash
-python examples/bootstrap_team_trio/bootstrap.py
-python examples/bootstrap_team_trio/planner.py
-python examples/bootstrap_team_trio/reviewer.py
-python examples/bootstrap_team_trio/coder.py
-python examples/bootstrap_team_trio/inspect_team.py
+python bootstrap_team_trio/bootstrap.py
+python bootstrap_team_trio/planner.py
+python bootstrap_team_trio/reviewer.py
+python bootstrap_team_trio/coder.py
+python bootstrap_team_trio/inspect_team.py
 ```
 
 A bootstrap node helps planner, reviewer, and coder find each other.
@@ -85,9 +85,9 @@ A bootstrap node helps planner, reviewer, and coder find each other.
 ## 4. Local mDNS swarm
 
 ```bash
-python examples/local_mdns_swarm/reviewer.py
-python examples/local_mdns_swarm/coder.py
-python examples/local_mdns_swarm/ask.py
+python local_mdns_swarm/reviewer.py
+python local_mdns_swarm/coder.py
+python local_mdns_swarm/ask.py
 ```
 
 Nodes with `mdns=True` discover each other on the same LAN without seeds.
@@ -95,11 +95,10 @@ Nodes with `mdns=True` discover each other on the same LAN without seeds.
 ## 5. Pydantic AI team
 
 ```bash
-python examples/pydantic_ai_team/bootstrap.py
-python examples/pydantic_ai_team/reviewer.py
-python examples/pydantic_ai_team/coder.py
-python examples/pydantic_ai_team/product.py
-python examples/pydantic_ai_team/ask.py
+python pydantic_ai_team/reviewer.py
+python pydantic_ai_team/coder.py
+python pydantic_ai_team/product.py
+python pydantic_ai_team/ask.py
 ```
 
-A reviewer, coder, and product node use Pydantic AI and reply into one broadcast conversation. It runs without API keys via `TestModel`; set `PYDANTIC_AI_MODEL` to use a real model.
+A reviewer, coder, and product node use Pydantic AI, discover each other with mDNS, and reply into one broadcast conversation. It runs without API keys via `TestModel`; set `PYDANTIC_AI_MODEL` to use a real model.

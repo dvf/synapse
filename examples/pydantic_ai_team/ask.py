@@ -1,6 +1,6 @@
 import asyncio
 
-from examples.pydantic_ai_team.common import SEED, SWARM
+from examples.pydantic_ai_team.common import SWARM
 from synapse_p2p import Node
 
 node = Node(
@@ -8,7 +8,7 @@ node = Node(
     role="team lead",
     swarm=SWARM,
     capabilities=["broadcast"],
-    seeds=[SEED],
+    mdns=True,
 )
 
 

@@ -6,7 +6,6 @@ from pydantic_ai import Agent
 from pydantic_ai.models.test import TestModel
 
 SWARM = "foo.electron.network"
-SEED = "127.0.0.1:9100"
 MODEL = os.getenv("PYDANTIC_AI_MODEL")
 
 
