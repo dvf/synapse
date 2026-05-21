@@ -29,9 +29,17 @@ await node.join()
 
 Synapse gives you one primitive: **Node**.
 
-A node can discover peers, publish capabilities, expose endpoints, receive work, broadcast questions, reply into shared conversations, heartbeat peers, and notice when peers disappear.
+A node can discover peers, publish capabilities, expose endpoints, receive work, broadcast questions, reply into shared conversations, heartbeat peers, and notice when peers disappear. Synapse is not an agent framework. It is the clean network layer underneath one.
 
-Synapse is not an agent framework. It is the clean network layer underneath one.
+It also ships with a CLI tool to monitor your swarms:
+
+```bash
+> sn watch foo.electron.network
+```
+
+<picture>
+<img width="1268" alt="image" src="https://github.com/user-attachments/assets/3b08371b-2a1b-465f-8939-cbf0a0ba219c" />
+</picture>
 
 ---
 
@@ -181,8 +189,6 @@ _synapse._tcp.local.
 ```
 
 mDNS is local by design. It usually does not cross routers, VPN boundaries, or restrictive firewalls.
-
-[SCREENSHOT: Add two terminals running local mDNS nodes and a third terminal running `sn watch foo.electron.network`, showing peers appearing automatically.]
 
 ---
 
@@ -352,8 +358,6 @@ sn --help
 
 `sn` uses mDNS by default, so local swarms work with zero configuration. Use `--seed host:port` for seed discovery, or `--no-mdns` to disable local discovery.
 
-[SCREENSHOT: Add the CLI `sn --help` output showing the available `watch`, `broadcast`, and `list-swarms` commands.]
-
 ### `sn watch`
 
 Watch a swarm live:
@@ -385,7 +389,6 @@ sn watch foo.electron.network --team backend
 sn watch foo.electron.network --no-capabilities
 ```
 
-[SCREENSHOT: Add the CLI `sn watch foo.electron.network` dashboard showing the swarm pane on the left, chatter pane on the right, colored JOINED/MESSAGE/REPLY/OFFLINE pills, online dots, and peer ip:port values.]
 
 ### `sn broadcast`
 
@@ -409,7 +412,6 @@ sn broadcast foo.electron.network "Ship status?" --discover 2 --timeout 10
 
 Broadcast replies are grouped by the broadcast nonce, so all agents can participate in one shared conversation.
 
-[SCREENSHOT: Add the CLI `sn broadcast foo.electron.network "Who can help ship this feature?"` output showing the broadcast nonce and multiple replies from coder/reviewer/product nodes.]
 
 ### `sn list-swarms`
 
@@ -425,7 +427,6 @@ Scan for longer:
 sn list-swarms --seconds 5
 ```
 
-[SCREENSHOT: Add the CLI `sn list-swarms` output showing visible swarm names, teams, and node names.]
 
 ---
 
@@ -451,7 +452,6 @@ from synapse_p2p import Broadcast, BroadcastReply, Capability, Client, Node, Pee
 
 See [`examples/`](./examples).
 
-[SCREENSHOT: Add a terminal grid showing `local_mdns_swarm/reviewer.py`, `local_mdns_swarm/coder.py`, and `local_mdns_swarm/ask.py` with successful replies.]
 
 ```bash
 # two nodes, one delegates to the other
@@ -473,7 +473,6 @@ python examples/pydantic_ai_team/ask.py
 
 The Pydantic AI example uses `TestModel` by default, so it runs without API keys. Set `PYDANTIC_AI_MODEL`, for example `openai:gpt-5.2`, to use a real model.
 
-[SCREENSHOT: Add the Pydantic AI team example showing reviewer/coder/product nodes replying to one broadcast conversation.]
 
 ---
 
