@@ -186,6 +186,16 @@ class Node:
 
             result = await self._dispatch(rpc, connection)
             response = RPCResponse(id=request_id, ok=True, result=result)
+        except (asyncio.IncompleteReadError, ConnectionError, OSError):
+            logger.debug(
+                "Connection closed before a full request from {}:{}",
+                connection.ip,
+                connection.port,
+            )
+            writer.close()
+            with contextlib.suppress(ConnectionError, OSError):
+                await writer.wait_closed()
+            return
         except InvalidMessageError as e:
             logger.debug("Invalid message from {}:{}: {}", connection.ip, connection.port, e)
             response = RPCResponse(
@@ -201,10 +211,19 @@ class Node:
                 error=RPCError(code="internal_error", message=str(e)),
             )
 
-        await write_frame(writer, self.serializer_class.serialize(response))
-        logger.debug("Closing connection to {}:{}", connection.ip, connection.port)
-        writer.close()
-        await writer.wait_closed()
+        try:
+            await write_frame(writer, self.serializer_class.serialize(response))
+        except (ConnectionError, OSError):
+            logger.debug(
+                "Connection closed before response to {}:{}",
+                connection.ip,
+                connection.port,
+            )
+        finally:
+            logger.debug("Closing connection to {}:{}", connection.ip, connection.port)
+            writer.close()
+            with contextlib.suppress(ConnectionError, OSError):
+                await writer.wait_closed()
 
     def _print_startup(self) -> None:
         print(f"Listening on {self.bind}:{self.port} (advertising {self.address})\n")

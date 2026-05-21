@@ -3,6 +3,7 @@ name = "synapse-p2p"
 dynamic = ["version"]
 description = "A language-agnostic network substrate for agent-to-agent collaboration"
 readme = "README.md"
+license = "MIT"
 keywords = ["agents", "agent-to-agent", "multi-agent", "rpc", "p2p", "msgpack", "substrate"]
 authors = [{ name = "Daniel van Flymen", email = "vanflymen@gmail.com" }]
 requires-python = ">=3.10"
