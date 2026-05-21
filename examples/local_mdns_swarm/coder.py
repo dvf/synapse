@@ -18,7 +18,7 @@ async def joined(peer: Peer) -> None:
 
 @node.endpoint("team.question")
 async def answer(question: str, broadcast: Broadcast) -> dict:
-    await node.reply(broadcast, {"from": node.name, "answer": "I can implement it."})
+    await node.reply(broadcast, {"from": node.name, "answer": "I can code it."})
     return {"accepted": True}
 
 
