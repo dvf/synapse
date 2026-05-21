@@ -1,5 +1,5 @@
 <picture>
-<img width="678" height="141" alt="Synapse Logo (3)" src="https://github.com/user-attachments/assets/213dfe30-58da-41c4-ba5d-5014647cd4d3" />
+<img width="400" alt="Synapse Logo" src="https://github.com/user-attachments/assets/706d1ce2-ae49-4c34-aa51-a5f8f1f5f68e" />
 </picture>
 
 <br><br>
@@ -11,6 +11,7 @@
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 
 <br>
+
 
 ```python
 from synapse_p2p import Node
