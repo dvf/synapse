@@ -55,6 +55,29 @@ async def _send_rpc(node: Node, rpc: RemoteProcedureCall) -> RPCResponse:
 
 
 @pytest.mark.asyncio
+async def test_node_ignores_connections_that_close_before_request():
+    node = Node(bind="127.0.0.1")
+    loop = asyncio.get_running_loop()
+    errors: list[dict] = []
+    previous_handler = loop.get_exception_handler()
+    loop.set_exception_handler(lambda _loop, context: errors.append(context))
+
+    tcp = await asyncio.start_server(node.handle_data, node.bind, node.port)
+    host, port = tcp.sockets[0].getsockname()[:2]
+
+    try:
+        async with tcp:
+            _reader, writer = await asyncio.open_connection(host, port)
+            writer.close()
+            await writer.wait_closed()
+            await asyncio.sleep(0)
+    finally:
+        loop.set_exception_handler(previous_handler)
+
+    assert errors == []
+
+
+@pytest.mark.asyncio
 async def test_node_round_trip_over_tcp():
     node = Node(bind="127.0.0.1")
 
