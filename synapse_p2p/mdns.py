@@ -5,6 +5,7 @@ from loguru import logger
 from zeroconf import ServiceStateChange
 from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo, AsyncZeroconf
 
+from synapse_p2p.network import host_id
 from synapse_p2p.types import Peer
 
 if TYPE_CHECKING:
@@ -85,6 +86,7 @@ class MdnsDiscovery:
                 "kind": _encode(self.node.kind.value),
                 "swarm": _encode(self.node.swarm),
                 "team": _encode(self.node.team),
+                "host": _encode(host_id()),
                 "capabilities": _encode(
                     ",".join(capability.name for capability in self.node.capabilities)
                 ),
@@ -131,6 +133,7 @@ class MdnsDiscovery:
         addresses = info.parsed_addresses()
         if not addresses:
             return None
+        address = "127.0.0.1" if _decode(properties.get(b"host")) == host_id() else addresses[0]
 
         capabilities = [
             capability
@@ -144,7 +147,7 @@ class MdnsDiscovery:
             id=peer_id,
             name=_decode(properties.get(b"name")),
             kind=_decode(properties.get(b"kind")) or "node",
-            address=addresses[0],
+            address=address,
             port=info.port,
             swarm=swarm,
             team=team,

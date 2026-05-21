@@ -24,10 +24,13 @@ async def answer(question: str, broadcast: Broadcast) -> dict:
 
 async def main() -> None:
     await node.start()
-    await node.join()
-    print(f"reviewer online at {node.address}:{node.port}")
-    print("waiting for local Synapse nodes...")
-    await asyncio.Event().wait()
+    try:
+        await node.join()
+        print(f"reviewer online at {node.address}:{node.port}")
+        print("waiting for local Synapse nodes...")
+        await asyncio.Event().wait()
+    finally:
+        await node.stop()
 
 
 if __name__ == "__main__":

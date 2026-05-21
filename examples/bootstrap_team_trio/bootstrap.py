@@ -29,8 +29,11 @@ async def peer_offline(peer: Peer) -> None:
 
 async def main() -> None:
     await bootstrap.start()
-    print(f"bootstrap listening on {bootstrap.address}:{bootstrap.port}")
-    await asyncio.Event().wait()
+    try:
+        print(f"bootstrap listening on {bootstrap.address}:{bootstrap.port}")
+        await asyncio.Event().wait()
+    finally:
+        await bootstrap.stop()
 
 
 if __name__ == "__main__":

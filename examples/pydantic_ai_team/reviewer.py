@@ -26,9 +26,12 @@ async def answer(question: str, broadcast: Broadcast) -> dict[str, str]:
 
 async def main() -> None:
     await node.start()
-    await node.join()
-    print(f"reviewer online at {node.address}:{node.port}")
-    await asyncio.Event().wait()
+    try:
+        await node.join()
+        print(f"reviewer online at {node.address}:{node.port}")
+        await asyncio.Event().wait()
+    finally:
+        await node.stop()
 
 
 if __name__ == "__main__":

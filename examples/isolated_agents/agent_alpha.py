@@ -25,9 +25,12 @@ async def ask_beta(task: str):
 
 async def main() -> None:
     await node.start()
-    print(f"alpha listening on {node.address}:{node.port}")
-    print("start beta, then run: python examples/isolated_agents/ask_alpha.py")
-    await asyncio.Event().wait()
+    try:
+        print(f"alpha listening on {node.address}:{node.port}")
+        print("start beta, then run: python examples/isolated_agents/ask_alpha.py")
+        await asyncio.Event().wait()
+    finally:
+        await node.stop()
 
 
 if __name__ == "__main__":

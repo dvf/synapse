@@ -5,6 +5,7 @@ import pytest
 
 from synapse_p2p import Node, mdns
 from synapse_p2p.mdns import SERVICE_TYPE, MdnsDiscovery
+from synapse_p2p.network import host_id
 
 
 class FakeInfo:
@@ -135,6 +136,29 @@ async def test_mdns_discovered_peer_is_ignored_when_swarm_differs():
     await discovery._add_or_update_peer(SERVICE_TYPE, "beta._synapse._tcp.local.")
 
     assert node.peers == {}
+
+
+def test_mdns_uses_loopback_for_same_host_advertisements():
+    node = Node(swarm="foo.electron.network", mdns=True, heartbeat_interval=None)
+    discovery = MdnsDiscovery(node)
+
+    peer = discovery._peer_from_service(
+        cast(
+            Any,
+            FakeInfo(
+                properties={
+                    b"id": b"beta",
+                    b"swarm": b"foo.electron.network",
+                    b"host": host_id().encode(),
+                },
+                addresses=["192.168.1.50"],
+                port=1234,
+            ),
+        )
+    )
+
+    assert peer is not None
+    assert peer.address == "127.0.0.1"
 
 
 def test_mdns_peer_from_service_requires_id_address_and_port():

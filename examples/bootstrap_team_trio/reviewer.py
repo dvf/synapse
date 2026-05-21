@@ -26,9 +26,12 @@ async def handle_task(task: str, context: dict):
 
 async def main() -> None:
     await reviewer.start()
-    await reviewer.join()
-    print(f"reviewer joined foo.electron.network on {reviewer.address}:{reviewer.port}")
-    await asyncio.Event().wait()
+    try:
+        await reviewer.join()
+        print(f"reviewer joined foo.electron.network on {reviewer.address}:{reviewer.port}")
+        await asyncio.Event().wait()
+    finally:
+        await reviewer.stop()
 
 
 if __name__ == "__main__":

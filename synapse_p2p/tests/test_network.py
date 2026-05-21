@@ -1,4 +1,4 @@
-from synapse_p2p.network import advertised_address
+from synapse_p2p.network import advertised_address, host_id
 
 
 def test_advertised_address_uses_explicit_advertise_value():
@@ -7,6 +7,10 @@ def test_advertised_address_uses_explicit_advertise_value():
 
 def test_advertised_address_uses_bind_when_bind_is_specific():
     assert advertised_address("127.0.0.1", "auto") == "127.0.0.1"
+
+
+def test_host_id_is_present():
+    assert host_id()
 
 
 def test_node_defaults_bind_to_all_interfaces_and_advertises_reachable_address():

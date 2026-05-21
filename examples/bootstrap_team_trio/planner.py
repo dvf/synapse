@@ -26,9 +26,12 @@ async def team_members():
 
 async def main() -> None:
     await planner.start()
-    await planner.join()
-    print(f"planner joined foo.electron.network on {planner.address}:{planner.port}")
-    await asyncio.Event().wait()
+    try:
+        await planner.join()
+        print(f"planner joined foo.electron.network on {planner.address}:{planner.port}")
+        await asyncio.Event().wait()
+    finally:
+        await planner.stop()
 
 
 if __name__ == "__main__":

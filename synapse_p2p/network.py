@@ -1,6 +1,11 @@
 import socket
 
 
+def host_id() -> str:
+    """Stable-enough local host identifier for same-machine peer detection."""
+    return socket.gethostname()
+
+
 def local_ip() -> str:
     """Best-effort LAN-reachable IPv4 address for advertising to peers."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
