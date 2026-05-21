@@ -29,9 +29,44 @@ await node.join()
 
 Synapse gives you one primitive: **Node**.
 
-A node can discover peers, publish capabilities, expose endpoints, receive work, broadcast questions, reply into shared conversations, heartbeat peers, and notice when peers disappear.
+A node can discover peers, publish capabilities, expose endpoints, receive work, broadcast questions, reply into shared conversations, heartbeat peers, and notice when peers disappear. Synapse is not an agent framework. It is the clean network layer underneath one.
 
-Synapse is not an agent framework. It is the clean network layer underneath one.
+It also ships with a CLI tool to monitor your swarms:
+
+```bash
+> sn watch foo.electron.network
+```
+
+<picture>
+<img width="1268" alt="image" src="https://github.com/user-attachments/assets/3b08371b-2a1b-465f-8939-cbf0a0ba219c" />
+</picture>
+
+---
+
+## Index
+
+- [Install](#install)
+- [Why Synapse](#why)
+- [30-second RPC](#30-second-rpc)
+- [Swarms](#swarms)
+- [Discovery](#local-discovery-mdns)
+  - [Local discovery: mDNS](#local-discovery-mdns)
+  - [Remote discovery: seeds](#remote-discovery-seeds)
+- [Capabilities](#capabilities)
+- [Ask](#ask)
+- [Broadcast conversations](#broadcast)
+- [Heartbeats and liveness](#heartbeats)
+- [CLI](#cli)
+  - [`sn watch`](#sn-watch)
+  - [`sn broadcast`](#sn-broadcast)
+  - [`sn list-swarms`](#sn-list-swarms)
+- [Typed peer API](#typed-peer-api)
+- [Examples](#examples)
+- [Built-in endpoints](#built-in-endpoints)
+- [Wire protocol](#wire-protocol)
+- [Logging](#logging)
+- [What Synapse is not](#what-synapse-is-not)
+- [Roadmap](#roadmap)
 
 ---
 
@@ -67,6 +102,8 @@ The goal is not to decide how agents think. The goal is to let them communicate.
 ---
 
 ## 30-second RPC
+
+This is the smallest useful Synapse program: one node exposes an RPC endpoint, and one client calls it.
 
 Create a node:
 
@@ -104,7 +141,7 @@ asyncio.run(main())
 
 ## Swarms
 
-A swarm is a group of nodes with the same swarm name.
+A swarm is a group of nodes with the same swarm name. Nodes only join and heartbeat peers in the same swarm.
 
 ```python
 node = Node(
@@ -126,6 +163,8 @@ Need subgroups? Use optional `team`. It defaults to `"default"`.
 ---
 
 ## Local discovery: mDNS
+
+Use mDNS for local, zero-config discovery on the same LAN.
 
 For local machines on the same network:
 
@@ -155,6 +194,8 @@ mDNS is local by design. It usually does not cross routers, VPN boundaries, or r
 
 ## Remote discovery: seeds
 
+Use seeds when mDNS is not enough: private networks, remote machines, explicit bootstrap nodes, or internet-reachable hosts.
+
 For private networks or internet-reachable hosts, use seeds:
 
 ```python
@@ -168,7 +209,7 @@ await node.start()
 await node.join()
 ```
 
-A seed is just another Synapse node. Once joined, nodes exchange known peers.
+A seed is just another Synapse node. It is a first contact point, not a coordinator. Once joined, nodes exchange known peers and can talk directly.
 
 By default, nodes listen on `0.0.0.0` and advertise an auto-detected reachable local address. For same-machine-only experiments, use `bind="127.0.0.1"`.
 
@@ -237,7 +278,7 @@ result = await Client.from_peer(peer).call(
 
 ## Broadcast
 
-Broadcast starts a swarm conversation.
+Broadcast starts a swarm conversation. It is the simplest way to ask the whole swarm a question and let any capable node reply.
 
 ```python
 broadcast = await node.broadcast("team.question", "Who can review this diff?")
@@ -309,23 +350,70 @@ Offline means “not seen within `peer_timeout`.”
 
 ## CLI
 
+The CLI is `sn`.
+
+```bash
+sn --help
+```
+
+`sn` uses mDNS by default, so local swarms work with zero configuration. Use `--seed host:port` for seed discovery, or `--no-mdns` to disable local discovery.
+
+### `sn watch`
+
 Watch a swarm live:
 
 ```bash
 sn watch foo.electron.network
 ```
 
-Broadcast and stream replies:
+`sn watch` opens an in-place terminal dashboard:
+
+- left pane: swarm name, this watcher, peers, online dots, addresses, capabilities
+- right pane: chatter/debug log for joins, messages, replies, offline events, and optional heartbeats
+
+Peer dots:
+
+| Dot | Meaning |
+| --- | --- |
+| bright green | fresh join/heartbeat pulse |
+| muted green | online |
+| yellow | stale, waiting for timeout |
+| red | offline |
+
+Useful options:
+
+```bash
+sn watch foo.electron.network --show-heartbeats
+sn watch foo.electron.network --seed 192.168.1.25:9000 --no-mdns
+sn watch foo.electron.network --team backend
+sn watch foo.electron.network --no-capabilities
+```
+
+
+### `sn broadcast`
+
+Broadcast a message to known swarm peers and stream replies:
 
 ```bash
 sn broadcast foo.electron.network "Who can review this diff?"
 ```
 
-Keep listening:
+Keep listening for late replies:
 
 ```bash
 sn broadcast foo.electron.network "Who can help?" --forever
 ```
+
+Tune discovery and reply timeout:
+
+```bash
+sn broadcast foo.electron.network "Ship status?" --discover 2 --timeout 10
+```
+
+Broadcast replies are grouped by the broadcast nonce, so all agents can participate in one shared conversation.
+
+
+### `sn list-swarms`
 
 List local mDNS-visible swarms:
 
@@ -333,7 +421,12 @@ List local mDNS-visible swarms:
 sn list-swarms
 ```
 
-`sn` uses mDNS by default. Use `--seed host:port` for seed discovery, or `--no-mdns` to disable local discovery.
+Scan for longer:
+
+```bash
+sn list-swarms --seconds 5
+```
+
 
 ---
 
@@ -359,6 +452,7 @@ from synapse_p2p import Broadcast, BroadcastReply, Capability, Client, Node, Pee
 
 See [`examples/`](./examples).
 
+
 ```bash
 # two nodes, one delegates to the other
 python examples/isolated_agents/agent_alpha.py
@@ -378,6 +472,7 @@ python examples/pydantic_ai_team/ask.py
 ```
 
 The Pydantic AI example uses `TestModel` by default, so it runs without API keys. Set `PYDANTIC_AI_MODEL`, for example `openai:gpt-5.2`, to use a real model.
+
 
 ---
 

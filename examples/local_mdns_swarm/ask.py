@@ -40,6 +40,7 @@ async def main() -> None:
 
         print("asking swarm: Who can help ship this feature?")
         broadcast = await node.broadcast("team.question", "Who can help ship this feature?")
+        print(f"conversation: {broadcast.nonce}")
         replies = await wait_for_replies(broadcast, minimum=len(peers), timeout=5)
 
         if not replies:
