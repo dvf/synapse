@@ -1,4 +1,5 @@
 import asyncio
+import os
 
 from synapse_p2p import Node
 
@@ -7,7 +8,7 @@ node = Node(
     role="worker",
     swarm="foo.electron.network",
     capabilities=["answer", "echo"],
-    seeds=["127.0.0.1:9999"],
+    seeds=[os.getenv("SYNAPSE_ALPHA", "127.0.0.1:9999")],
     mdns=True,
 )
 

@@ -1,4 +1,5 @@
 import asyncio
+import os
 
 from synapse_p2p import Node
 
@@ -7,7 +8,7 @@ coder = Node(
     role="coder",
     swarm="foo.electron.network",
     capabilities=["python", "implementation"],
-    seeds=["127.0.0.1:9000"],
+    seeds=[os.getenv("SYNAPSE_BOOTSTRAP", "127.0.0.1:9000")],
     heartbeat_interval=5,
     peer_timeout=20,
 )

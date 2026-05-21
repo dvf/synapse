@@ -34,7 +34,9 @@ uv run python local_mdns_swarm/reviewer.py
 
 Notes:
 
+- Nodes listen on all interfaces by default and advertise a reachable local IP.
 - mDNS examples require devices/processes to be on the same local network and may need firewall permission.
+- Seed examples default to same-machine seeds. For another machine, point the seed at its advertised address, for example `SYNAPSE_BOOTSTRAP=192.168.1.25:9000`.
 - The Pydantic AI example uses `TestModel` by default, so it works without API keys.
 - To use a real model, set `PYDANTIC_AI_MODEL` and the provider's API key, for example:
 
@@ -70,6 +72,13 @@ python isolated_agents/ask_alpha.py
 
 Beta joins Alpha through a seed. Both also advertise with mDNS, so `sn list-swarms` can see the swarm. The client asks Alpha; Alpha delegates to Beta.
 
+On one machine, run the commands as-is. Across two machines, start Alpha first, copy the address it prints, then run Beta and the asker with:
+
+```bash
+SYNAPSE_ALPHA=192.168.1.25:9999 python isolated_agents/agent_beta.py
+SYNAPSE_ALPHA=192.168.1.25:9999 python isolated_agents/ask_alpha.py
+```
+
 ## 3. Bootstrap team trio
 
 ```bash
@@ -81,6 +90,15 @@ python bootstrap_team_trio/inspect_team.py
 ```
 
 A bootstrap node helps planner, reviewer, and coder find each other.
+
+On one machine, run the commands as-is. Across machines, start the bootstrap first, copy the address it prints, then run the others with:
+
+```bash
+SYNAPSE_BOOTSTRAP=192.168.1.25:9000 python bootstrap_team_trio/planner.py
+SYNAPSE_BOOTSTRAP=192.168.1.25:9000 python bootstrap_team_trio/reviewer.py
+SYNAPSE_BOOTSTRAP=192.168.1.25:9000 python bootstrap_team_trio/coder.py
+SYNAPSE_BOOTSTRAP=192.168.1.25:9000 python bootstrap_team_trio/inspect_team.py
+```
 
 ## 4. Local mDNS swarm
 

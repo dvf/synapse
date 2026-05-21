@@ -236,13 +236,23 @@ result = await Client.from_peer(peer).call(
 
 ## Broadcast
 
-Broadcast asks the known swarm. Each broadcast gets a nonce.
+Broadcast starts a swarm conversation.
 
 ```python
 broadcast = await node.broadcast("team.question", "Who can review this diff?")
 ```
 
-Handle and reply:
+That returns a `Broadcast` object:
+
+```python
+broadcast.nonce   # conversation id
+broadcast.origin  # peer that started it
+broadcast.endpoint
+```
+
+The nonce is the conversation atom. Synapse creates UUIDv7 nonces when the Python runtime supports them, so conversations are unique and time-sortable. On older runtimes it falls back to UUIDv4.
+
+Every receiver gets the same `Broadcast` object. Any node can reply into that conversation by reusing the nonce through `node.reply(...)`:
 
 ```python
 from synapse_p2p import Broadcast
@@ -254,18 +264,21 @@ async def answer(question: str, broadcast: Broadcast) -> dict:
     return {"accepted": True}
 ```
 
-Collect replies:
+The origin node groups all replies by nonce:
 
 ```python
-replies = node.replies(broadcast)
+for reply in node.replies(broadcast):
+    print(reply.peer.name, reply.result)
 ```
 
-The nonce is the conversation atom:
+Why this matters:
 
 - one broadcast creates one shared event
-- any node can answer with the same nonce
+- the nonce is the conversation id
+- every agent sees the same nonce
+- any agent can participate by replying with that nonce
 - replies group without a central coordinator
-- UUIDv7-capable Python runtimes get time-sortable nonces
+- UUIDv7 nonces keep conversation ids roughly ordered by creation time
 
 ---
 

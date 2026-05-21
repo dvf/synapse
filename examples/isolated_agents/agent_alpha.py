@@ -25,7 +25,7 @@ async def ask_beta(task: str):
 
 async def main() -> None:
     await node.start()
-    print("alpha listening on 127.0.0.1:9999")
+    print(f"alpha listening on {node.address}:{node.port}")
     print("start beta, then run: python examples/isolated_agents/ask_alpha.py")
     await asyncio.Event().wait()
 

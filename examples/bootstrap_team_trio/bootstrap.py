@@ -29,7 +29,7 @@ async def peer_offline(peer: Peer) -> None:
 
 async def main() -> None:
     await bootstrap.start()
-    print("bootstrap listening on 127.0.0.1:9000")
+    print(f"bootstrap listening on {bootstrap.address}:{bootstrap.port}")
     await asyncio.Event().wait()
 
 

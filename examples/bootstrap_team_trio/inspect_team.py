@@ -1,10 +1,12 @@
 import asyncio
+import os
 
 from synapse_p2p import Client
 
 
 async def main() -> None:
-    peers = await Client("127.0.0.1", 9000).peers()
+    host, port = os.getenv("SYNAPSE_BOOTSTRAP", "127.0.0.1:9000").rsplit(":", 1)
+    peers = await Client(host, int(port)).peers()
     print("Discovered peers:")
     for peer in peers:
         print(
