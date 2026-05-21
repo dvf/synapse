@@ -1,18 +1,18 @@
 
 import pytest
 
-from synapse_p2p import AgentCapability, AgentNode, Client
+from synapse_p2p import Capability, Client, Node
 
 
 @pytest.mark.asyncio
-async def test_agent_info_and_capabilities_are_discoverable():
-    agent = AgentNode(
+async def test_node_info_and_capabilities_are_discoverable():
+    agent = Node(
         name="Reviewer",
         role="reviewer",
         description="Reviews Python code",
         capabilities=[
             "python",
-            AgentCapability(name="code-review", description="Review code for quality"),
+            Capability(name="code-review", description="Review code for quality"),
         ],
         address="127.0.0.1",
         port=0,
@@ -23,13 +23,13 @@ async def test_agent_info_and_capabilities_are_discoverable():
 
     try:
         client = Client(host, port)
-        assert await client.call("_agent.info") == {
+        assert await client.call("_node.info") == {
             "name": "Reviewer",
             "role": "reviewer",
             "description": "Reviews Python code",
             "capabilities": ["python", "code-review"],
         }
-        assert await client.call("_agent.capabilities") == [
+        assert await client.call("_node.capabilities") == [
             {"name": "python", "description": "", "input_schema": {}, "output_schema": {}},
             {
                 "name": "code-review",
@@ -43,10 +43,10 @@ async def test_agent_info_and_capabilities_are_discoverable():
 
 
 @pytest.mark.asyncio
-async def test_agent_ask_delegates_to_task_handler():
-    agent = AgentNode(name="Coder", role="coder", capabilities=["python"], port=0)
+async def test_node_ask_delegates_to_handler():
+    agent = Node(name="Coder", role="coder", capabilities=["python"], port=0)
 
-    @agent.task_handler
+    @agent.ask
     async def handle_task(task: str, context: dict):
         return {"task": task, "language": context["language"]}
 
@@ -55,7 +55,7 @@ async def test_agent_ask_delegates_to_task_handler():
 
     try:
         result = await Client(host, port).call(
-            "_agent.ask", "write a test", context={"language": "python"}
+            "_node.ask", "write a test", context={"language": "python"}
         )
         assert result == {"task": "write a test", "language": "python"}
     finally:
@@ -63,8 +63,8 @@ async def test_agent_ask_delegates_to_task_handler():
 
 
 @pytest.mark.asyncio
-async def test_published_methods_excludes_private_system_and_agent_endpoints():
-    agent = AgentNode(name="Coder", role="coder", port=0)
+async def test_published_methods_excludes_private_system_and_node_endpoints():
+    agent = Node(name="Coder", role="coder", port=0)
 
     @agent.endpoint("public.tool", description="A public tool")
     async def public_tool():
