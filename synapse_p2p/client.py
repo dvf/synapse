@@ -2,6 +2,7 @@ import asyncio
 
 from synapse_p2p.framing import read_frame, write_frame
 from synapse_p2p.messages import RPCRequest, RPCResponse
+from synapse_p2p.network import connect_address
 from synapse_p2p.serializers import BaseRPCSerializer, MessagePackRPCSerializer
 from synapse_p2p.types import Peer
 from synapse_p2p.utils import random_hash
@@ -16,7 +17,7 @@ class Client:
         max_download_size: int = 4096,
         timeout: float | None = 30,
     ) -> None:
-        self.address = address
+        self.address = connect_address(address)
         self.port = port
         self.serializer_class = serializer_class
         self.max_download_size = max_download_size

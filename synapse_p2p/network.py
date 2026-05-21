@@ -22,6 +22,17 @@ def local_ip() -> str:
     return address
 
 
+def is_local_address(address: str) -> bool:
+    if address.startswith("127.") or address in {"localhost", "::1"}:
+        return True
+    return address == local_ip()
+
+
+def connect_address(address: str) -> str:
+    """Prefer loopback when connecting to this same machine."""
+    return "127.0.0.1" if is_local_address(address) else address
+
+
 def advertised_address(bind: str, advertise: str | None) -> str:
     if advertise and advertise != "auto":
         return advertise
