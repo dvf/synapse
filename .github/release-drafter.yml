@@ -18,14 +18,14 @@ change-title-escapes: '\<*_&'
 version-resolver:
   major:
     labels:
-      - 'breaking-change'
+      - "breaking-change"
   minor:
     labels:
-      - 'feature'
+      - "feature"
   patch:
     labels:
-      - 'fix'
-      - 'maintenance'
+      - "fix"
+      - "maintenance"
   default: patch
 
 template: |
