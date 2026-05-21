@@ -1,8 +1,8 @@
 import pytest
 
-from synapse_p2p.server import Server
+from synapse_p2p.node import Node
 
 
 @pytest.fixture
-def server() -> Server:
-    return Server(address="127.0.0.1", port=9999)
+def node() -> Node:
+    return Node(address="127.0.0.1")

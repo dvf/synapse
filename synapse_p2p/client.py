@@ -3,6 +3,7 @@ import asyncio
 from synapse_p2p.framing import read_frame, write_frame
 from synapse_p2p.messages import RPCRequest, RPCResponse
 from synapse_p2p.serializers import BaseRPCSerializer, MessagePackRPCSerializer
+from synapse_p2p.types import Peer
 from synapse_p2p.utils import random_hash
 
 
@@ -21,6 +22,23 @@ class Client:
         self.max_download_size = max_download_size
         self.timeout = timeout
 
+    @classmethod
+    def from_peer(
+        cls,
+        peer: Peer,
+        *,
+        serializer_class: type[BaseRPCSerializer] = MessagePackRPCSerializer,
+        max_download_size: int = 4096,
+        timeout: float | None = 30,
+    ) -> "Client":
+        return cls(
+            peer.address,
+            peer.port,
+            serializer_class=serializer_class,
+            max_download_size=max_download_size,
+            timeout=timeout,
+        )
+
     async def call(self, endpoint: str, *args, **kwargs):
         request = RPCRequest(id=random_hash(), endpoint=endpoint, args=list(args), kwargs=kwargs)
         reader, writer = await asyncio.open_connection(self.address, self.port)
@@ -31,7 +49,7 @@ class Client:
             )
             response = self.serializer_class.deserialize(payload)
             if not isinstance(response, RPCResponse):
-                raise RuntimeError("server returned a non-response message")
+                raise RuntimeError("node returned a non-response message")
             if not response.ok:
                 message = response.error.message if response.error else "RPC call failed"
                 raise RuntimeError(message)
@@ -39,3 +57,9 @@ class Client:
         finally:
             writer.close()
             await writer.wait_closed()
+
+    async def peers(self) -> list[Peer]:
+        result = await self.call("_synapse.peers")
+        if not isinstance(result, list):
+            raise RuntimeError("node returned an invalid peer list")
+        return [Peer.from_dict(peer) for peer in result]

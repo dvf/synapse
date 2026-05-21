@@ -1,6 +1,6 @@
-from synapse_p2p import Server
+from synapse_p2p import Node
 
-app = Server()
+app = Node(port=9999)
 
 
 @app.background(3)

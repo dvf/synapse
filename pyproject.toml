@@ -1,20 +1,28 @@
 [project]
 name = "synapse-p2p"
 dynamic = ["version"]
-description = "A network substrate for Python agents"
+description = "A language-agnostic network substrate for agent-to-agent collaboration"
 readme = "README.md"
+keywords = ["agents", "agent-to-agent", "multi-agent", "rpc", "p2p", "msgpack", "substrate"]
 authors = [{ name = "Daniel van Flymen", email = "vanflymen@gmail.com" }]
 requires-python = ">=3.10"
 dependencies = [
     "loguru",
     "msgpack",
+    "rich>=13",
+    "typer>=0.20",
+    "zeroconf>=0.147",
 ]
 
 [project.urls]
 Homepage = "https://github.com/dvf/synapse"
 
+[project.scripts]
+sn = "synapse_p2p.cli:app"
+
 [dependency-groups]
 dev = [
+    "pydantic-ai>=1.32",
     "pyrefly>=1.0.0",
     "pytest",
     "pytest-asyncio",
@@ -23,6 +31,9 @@ dev = [
     "pyrefly",
     "ruff",
 ]
+
+[project.optional-dependencies]
+examples = ["pydantic-ai>=1.32"]
 
 [build-system]
 requires = ["hatchling", "uv-dynamic-versioning"]
@@ -53,5 +64,5 @@ asyncio_mode = "auto"
 testpaths = ["synapse_p2p/tests"]
 
 [tool.pyrefly]
-project-includes = ["synapse_p2p", "example_client.py", "example_server.py"]
+project-includes = ["synapse_p2p", "examples", "example_client.py", "example_node.py"]
 project-excludes = ["**/__pycache__", ".venv", ".ruff_cache", ".pytest_cache"]
