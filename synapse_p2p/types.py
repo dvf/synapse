@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import asdict, dataclass, field
@@ -11,7 +13,7 @@ class NodeKind(StrEnum):
     BOOTSTRAP = "bootstrap"
 
     @classmethod
-    def from_value(cls, value: str | "NodeKind") -> "NodeKind":
+    def from_value(cls, value: str | NodeKind) -> NodeKind:
         if isinstance(value, cls):
             return value
         return cls(value)
@@ -54,7 +56,7 @@ class Peer:
         return self.kind == NodeKind.from_value(kind)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Peer":
+    def from_dict(cls, data: dict[str, Any]) -> Peer:
         return cls(**data)
 
     def to_dict(self) -> dict[str, Any]:
@@ -70,7 +72,7 @@ class Broadcast:
     endpoint: str
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Broadcast":
+    def from_dict(cls, data: dict[str, Any]) -> Broadcast:
         return cls(
             nonce=data["nonce"],
             origin=Peer.from_dict(data["origin"]),
@@ -92,7 +94,7 @@ class BroadcastReply:
     result: Any
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "BroadcastReply":
+    def from_dict(cls, data: dict[str, Any]) -> BroadcastReply:
         return cls(
             nonce=data["nonce"],
             peer=Peer.from_dict(data["peer"]),
