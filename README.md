@@ -3,7 +3,7 @@
 </picture>
 
 <br><br>
-**A tiny p2p substrate for agent swarms that discover each other, share capabilities, delegate work, broadcast questions, and run jobs on human or solar time.**
+**A p2p substrate for building agent swarms that discover each other, share capabilities, delegate work, broadcast questions, and run jobs on human or solar time.**
 
 [![PyPI](https://img.shields.io/pypi/v/synapse-p2p.svg)](https://pypi.python.org/pypi/synapse-p2p)
 [![Tests](https://github.com/dvf/synapse/actions/workflows/test.yml/badge.svg)](https://github.com/dvf/synapse/actions/workflows/test.yml)
