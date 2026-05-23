@@ -617,6 +617,9 @@ python examples/pydantic_ai_team/reviewer.py
 python examples/pydantic_ai_team/coder.py
 python examples/pydantic_ai_team/product.py
 python examples/pydantic_ai_team/ask.py
+
+# periodic jobs: interval, cron, sunrise, and civil twilight
+python examples/periodic_tasks.py
 ```
 
 The Pydantic AI example uses `TestModel` by default, so it runs without API keys. Set `PYDANTIC_AI_MODEL`, for example `openai:gpt-5.2`, to use a real model.
