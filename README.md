@@ -595,6 +595,10 @@ sn list-swarms --seconds 5
 See [`examples/`](./examples).
 
 ```bash
+# smallest RPC example
+python examples/basic_rpc/node.py
+python examples/basic_rpc/client.py
+
 # two nodes, one delegates to the other
 python examples/isolated_agents/agent_alpha.py
 python examples/isolated_agents/agent_beta.py
