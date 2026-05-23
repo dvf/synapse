@@ -11,26 +11,25 @@ Nodes:
 
 ```mermaid
 flowchart LR
-    Exchange["paper-exchange<br/>dumb API node<br/>quotes + market status + paper orders"]
-    Trader["trader<br/>periodic market scan<br/>coordinates conversation"]
-    Analyst["analyst<br/>technical analysis"]
-    News["news-observer<br/>headline sentiment"]
+    Exchange["paper-exchange<br/>API + bootstrap"]
+    Trader["trader<br/>periodic coordinator"]
+    Analyst["analyst"]
+    News["news-observer"]
 
-    Exchange -. "bootstrap seed / peer discovery" .- Trader
-    Exchange -. "bootstrap seed / peer discovery" .- Analyst
-    Exchange -. "bootstrap seed / peer discovery" .- News
+    Trader <--> Exchange
+    Trader <--> Analyst
+    Trader <--> News
+    Analyst -. swarm discovery .- Exchange
+    News -. swarm discovery .- Exchange
 
-    Trader -->|"1. every 30s: exchange.market_status"| Exchange
-    Exchange -->|"closed"| Trader
-    Trader -. "market closed: no ask, no tokens" .-> Trader
-
-    Exchange -->|"open + quote"| Trader
-    Trader -->|"2. synapse.ask conversation"| Analyst
-    Trader -->|"2. synapse.ask conversation"| News
-    Analyst -->|"ACK + reply"| Trader
-    News -->|"ACK + reply"| Trader
-    Trader -->|"3. paper order if signals agree"| Exchange
+    Conversation((shared conversation))
+    Trader --- Conversation
+    Analyst --- Conversation
+    News --- Conversation
+    Exchange --- Conversation
 ```
+
+The exchange is the dumb API/bootstrap node. The trader periodically checks the market, starts a shared conversation when appropriate, and every node can observe or participate in that conversation. Analyst/news nodes can wade in with ACKs and replies; the exchange can stay dumb and just serve API calls.
 
 Run it in four terminals:
 
