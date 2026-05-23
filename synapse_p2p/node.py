@@ -26,6 +26,7 @@ from synapse_p2p.types import (
     Broadcast,
     BroadcastReply,
     Connection,
+    ConversationEvent,
     NodeKind,
     Peer,
     PeriodicTask,
@@ -103,6 +104,8 @@ class Node:
         self.peer_timeout = peer_timeout
         self.peers: dict[str, Peer] = {}
         self.broadcast_replies: dict[str, list[BroadcastReply]] = {}
+        self.conversation_events: dict[str, list[ConversationEvent]] = {}
+        self._seen_conversation_events: set[str] = set()
         self.artifact_directory: dict[str, ServedArtifact] = {}
         self.lifecycle_handlers: dict[str, list[Callable[[Any], Coroutine[Any, Any, None]]]] = {}
         self.endpoint_directory: dict[str, Callable] = {}
@@ -223,11 +226,29 @@ class Node:
         kwargs = dict(rpc.kwargs)
         if "broadcast" in kwargs and isinstance(kwargs["broadcast"], dict):
             kwargs["broadcast"] = Broadcast.from_dict(kwargs["broadcast"])
+            broadcast = kwargs["broadcast"]
+            self._remember_conversation_event(
+                ConversationEvent(
+                    conversation_id=broadcast.nonce,
+                    event_id=broadcast.nonce,
+                    kind="message",
+                    peer=broadcast.origin,
+                    payload={
+                        "endpoint": rpc.endpoint,
+                        "args": list(rpc.args),
+                        "kwargs": {
+                            key: value
+                            for key, value in kwargs.items()
+                            if key != "broadcast"
+                        },
+                    },
+                )
+            )
             self._emit_lifecycle(
                 "broadcast.received",
                 {
                     "endpoint": rpc.endpoint,
-                    "broadcast": kwargs["broadcast"],
+                    "broadcast": broadcast,
                     "args": list(rpc.args),
                     "kwargs": {key: value for key, value in kwargs.items() if key != "broadcast"},
                 },
@@ -464,6 +485,15 @@ class Node:
         """
 
         broadcast = Broadcast(nonce=new_nonce(), origin=self.self_peer(), endpoint=endpoint)
+        self._remember_conversation_event(
+            ConversationEvent(
+                conversation_id=broadcast.nonce,
+                event_id=broadcast.nonce,
+                kind="message",
+                peer=broadcast.origin,
+                payload={"endpoint": endpoint, "args": list(args), "kwargs": dict(kwargs)},
+            )
+        )
         message = broadcast.to_dict()
 
         async def send(peer: Peer) -> None:
@@ -477,6 +507,16 @@ class Node:
 
     async def reply(self, broadcast: Broadcast, result: Any) -> None:
         """Reply to a broadcast using its nonce and share the reply with known peers."""
+        self._remember_conversation_event(
+            ConversationEvent(
+                conversation_id=broadcast.nonce,
+                event_id=random_hash(),
+                kind="reply",
+                peer=self.self_peer(),
+                payload={"result": result},
+                parent_id=broadcast.nonce,
+            )
+        )
         recipients = {broadcast.origin.id: broadcast.origin}
         for peer in self.peers.values():
             recipients.setdefault(peer.id, peer)
@@ -499,6 +539,83 @@ class Node:
         """Return replies received for a broadcast or nonce."""
         nonce = broadcast.nonce if isinstance(broadcast, Broadcast) else broadcast
         return list(self.broadcast_replies.get(nonce, []))
+
+    def conversation(self, conversation: Broadcast | str) -> list[ConversationEvent]:
+        """Return locally known events for a conversation id or broadcast."""
+        conversation_id = (
+            conversation.nonce if isinstance(conversation, Broadcast) else conversation
+        )
+        return list(self.conversation_events.get(conversation_id, []))
+
+    def _remember_conversation_event(self, event: ConversationEvent) -> bool:
+        if event.event_id in self._seen_conversation_events:
+            return False
+        self._validate_peer_membership(event.peer)
+        self._seen_conversation_events.add(event.event_id)
+        self.conversation_events.setdefault(event.conversation_id, []).append(event)
+        self.add_peer(event.peer)
+        self._emit_lifecycle("conversation.event", event)
+        self._emit_lifecycle(f"conversation.{event.kind}", event)
+        return True
+
+    async def emit_conversation_event(
+        self,
+        conversation: Broadcast | str,
+        kind: str,
+        payload: dict[str, Any] | None = None,
+        *,
+        parent_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> ConversationEvent:
+        """Append a lightweight event to a shared conversation and gossip it to peers."""
+        conversation_id = (
+            conversation.nonce if isinstance(conversation, Broadcast) else conversation
+        )
+        event = ConversationEvent(
+            conversation_id=conversation_id,
+            event_id=random_hash(),
+            kind=kind,
+            peer=self.self_peer(),
+            payload=payload or {},
+            parent_id=parent_id,
+            metadata=metadata or {},
+        )
+        self._remember_conversation_event(event)
+        await self._send_conversation_event(event)
+        return event
+
+    async def ack(
+        self,
+        conversation: Broadcast | str,
+        payload: dict[str, Any] | None = None,
+        *,
+        parent_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> ConversationEvent:
+        """Emit an opt-in acknowledgement event for a conversation."""
+        if isinstance(conversation, Broadcast) and parent_id is None:
+            parent_id = conversation.nonce
+        return await self.emit_conversation_event(
+            conversation,
+            "ack",
+            payload,
+            parent_id=parent_id,
+            metadata=metadata,
+        )
+
+    async def _send_conversation_event(
+        self,
+        event: ConversationEvent,
+        *,
+        exclude: set[str] | None = None,
+    ) -> None:
+        excluded = {self.node_id, event.peer.id, *(exclude or set())}
+        recipients = [peer for peer in self.peers.values() if peer.id not in excluded]
+
+        async def send(peer: Peer) -> None:
+            await Client.from_peer(peer).call("_synapse.conversation.event", event.to_dict())
+
+        await asyncio.gather(*(send(peer) for peer in recipients), return_exceptions=True)
 
     async def _discover(self, *, wait: float = 0) -> None:
         if self.mdns is not None:
@@ -544,6 +661,21 @@ class Node:
                 raise RuntimeError("node has no ask handler")
             return await self._ask_handler(task, context or {})
 
+        @self.endpoint("synapse.ask", publish=False, description="Ask this node to perform work")
+        async def swarm_ask(
+            task: str,
+            context: dict[str, Any] | None = None,
+            broadcast: Broadcast | None = None,
+        ) -> Any:
+            if self._ask_handler is None:
+                raise RuntimeError("node has no ask handler")
+            if broadcast is not None:
+                await self.ack(broadcast)
+            result = await self._ask_handler(task, context or {})
+            if broadcast is not None:
+                await self.reply(broadcast, result)
+            return result
+
     def _register_system_endpoints(self) -> None:
         @self.endpoint("_synapse.ping", publish=False)
         async def ping() -> str:
@@ -579,6 +711,14 @@ class Node:
                 raise InvalidMessageError(f"unknown artifact: {name}")
             return artifact.to_dict()
 
+        @self.endpoint("_synapse.conversation.event", publish=False)
+        async def conversation_event(event: dict[str, Any]) -> dict[str, Any]:
+            incoming = ConversationEvent.from_dict(event)
+            remembered = self._remember_conversation_event(incoming)
+            if remembered:
+                await self._send_conversation_event(incoming)
+            return {"ok": True, "stored": remembered}
+
         @self.endpoint("_synapse.join", publish=False)
         async def join(peer: dict) -> dict:
             incoming = Peer.from_dict(peer)
@@ -603,6 +743,16 @@ class Node:
                 return {"ok": True}
 
             self.add_peer(incoming)
+            self._remember_conversation_event(
+                ConversationEvent(
+                    conversation_id=nonce,
+                    event_id=random_hash(),
+                    kind="reply",
+                    peer=incoming,
+                    payload={"result": result},
+                    parent_id=nonce,
+                )
+            )
             reply = BroadcastReply(nonce=nonce, peer=incoming, result=result)
             replies.append(reply)
             self._emit_lifecycle("broadcast.reply", reply)

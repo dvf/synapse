@@ -61,7 +61,7 @@ What makes it fun:
 - [Swarms and discovery](#swarms-and-discovery)
 - [Capabilities](#capabilities)
 - [Ask: delegate work](#ask-delegate-work)
-- [Broadcast: ask the swarm](#broadcast-ask-the-swarm)
+- [Broadcast: shared conversations](#broadcast-shared-conversations)
 - [Periodic tasks](#periodic-tasks)
 - [Artifacts and agent cards](#artifacts-and-agent-cards)
 - [Heartbeats](#heartbeats)
@@ -313,7 +313,7 @@ methods = await client.call("_synapse.methods")
 
 ## 🤝 Ask: delegate work
 
-Use `@node.ask` for the default task handler on a node.
+Use `@node.ask` for the default task handler on a node. Synapse provides the transport; your agent code decides whether and how to answer.
 
 ```python
 from synapse_p2p import Node
@@ -326,7 +326,11 @@ async def handle(task: str, context: dict):
     return {"status": "done", "task": task}
 ```
 
-Ask a peer to do work:
+There are two ways to use it.
+
+### Direct ask
+
+Call one known peer directly with `_node.ask`:
 
 ```python
 from synapse_p2p import Client
@@ -338,9 +342,29 @@ result = await Client.from_peer(peer).call(
 )
 ```
 
+### Swarm ask
+
+Broadcast to the built-in `synapse.ask` endpoint when you want any interested node to wade in:
+
+```python
+broadcast = await node.broadcast(
+    "synapse.ask",
+    "Review this diff",
+    context={"diff": diff},
+)
+```
+
+A node with an `@node.ask` handler will ACK the conversation, run the handler, and reply with the result. Nodes without a handler fail quietly from the caller's point of view, just like any other broadcast recipient that cannot help.
+
+The CLI wraps this flow:
+
+```bash
+sn ask foo.electron.network "Review this diff" --context url=https://github.com/org/repo/pull/1
+```
+
 ---
 
-## 💬 Broadcast: ask the swarm
+## 💬 Broadcast: shared conversations
 
 Use broadcast when you do not know which node should answer.
 
@@ -367,11 +391,48 @@ for reply in node.replies(broadcast):
     print(reply.peer.name, reply.result)
 ```
 
+Synapse also keeps a lightweight conversation event log. A broadcast creates a `message` event whose `conversation_id` is the broadcast nonce. Nodes may opt into the conversation with `ack` or other events; Synapse does not decide who should answer.
+
+```python
+@node.endpoint("team.question")
+async def answer(question: str, broadcast: Broadcast) -> dict:
+    # ACK means "I saw this and am choosing to wade in".
+    # It does not mean Synapse assigned this node the work.
+    await node.ack(broadcast, {"seen": True})
+    await node.reply(broadcast, {"answer": "I can help"})
+    return {"accepted": True}
+```
+
+Listen for conversation events:
+
+```python
+from synapse_p2p import ConversationEvent
+
+
+@node.on("conversation.ack")
+async def on_ack(event: ConversationEvent) -> None:
+    print(event.peer.name, "acked", event.conversation_id)
+
+
+for event in node.conversation(broadcast):
+    print(event.kind, event.peer.name, event.payload)
+```
+
+Built-in conversation event kinds are intentionally small conventions:
+
+- `message` — a broadcast or conversation message was seen
+- `ack` — a node chose to acknowledge / enter the conversation
+- `reply` — a node replied with a result
+
+Higher-level agent frameworks can layer routing, claiming, status, artifacts, or task semantics on top by emitting their own event kinds with `node.emit_conversation_event(...)`.
+
 Why this is useful:
 
 - one broadcast creates one shared conversation
 - every node sees the same nonce
-- replies group without a central coordinator
+- nodes can wade in or stay silent
+- ACK is opt-in, not automatic assignment
+- replies and events group without a central coordinator
 - UUIDv7 nonces keep conversations roughly time-ordered when the runtime supports them
 
 ---
@@ -515,6 +576,25 @@ sn watch foo.electron.network --team backend
 sn watch foo.electron.network --no-capabilities
 ```
 
+### 🙋 Ask from the terminal
+
+`sn ask` broadcasts to the built-in `synapse.ask` endpoint. Nodes with a `@node.ask` handler can opt in with ACK and reply with their result.
+
+```bash
+sn ask foo.electron.network "Review this diff"
+sn ask foo.electron.network "Review this diff" --context url=https://github.com/org/repo/pull/1
+sn ask foo.electron.network "Who can help?" --forever
+```
+
+Example output:
+
+```text
+ask: 019e4ab0-1d0d-709a-...
+waiting for ACKs and replies... press Ctrl+C to stop
+✓ reviewer acked
+- reviewer: LGTM after fixing tests
+```
+
 ### 📣 Broadcast from the terminal
 
 ```bash
@@ -574,11 +654,13 @@ Built-in endpoints:
 | `_synapse.join` | join through a seed |
 | `_synapse.heartbeat` | update peer liveness |
 | `_synapse.broadcast.reply` | reply to a broadcast nonce |
+| `_synapse.conversation.event` | gossip a shared conversation event |
 | `_synapse.artifacts` | list advertised artifacts |
 | `_synapse.artifact.get` | fetch one advertised artifact |
 | `_node.info` | name, role, description, capabilities |
 | `_node.capabilities` | machine-readable capabilities |
-| `_node.ask` | delegate to the node ask handler |
+| `_node.ask` | delegate directly to the node ask handler |
+| `synapse.ask` | swarm-facing ask endpoint used by `sn ask` |
 
 Wire format:
 
@@ -612,8 +694,20 @@ Response:
 Useful low-level exports:
 
 ```python
-from synapse_p2p import Broadcast, BroadcastReply, Capability, Client, Node, Peer
-from synapse_p2p import RPCError, RPCRequest, RPCResponse
+from synapse_p2p import (
+    AdvertisedArtifact,
+    Broadcast,
+    BroadcastReply,
+    Capability,
+    Client,
+    ConversationEvent,
+    Node,
+    Peer,
+    RPCError,
+    RPCRequest,
+    RPCResponse,
+    ServedArtifact,
+)
 ```
 
 Enable logs when debugging:
@@ -634,7 +728,7 @@ Those belong above Synapse.
 
 Synapse is the substrate:
 
-> nodes + discovery + capabilities + heartbeats + broadcasts + schedules + a tiny protocol
+> nodes + discovery + capabilities + conversations + artifacts + heartbeats + schedules + a tiny protocol
 
 ---
 
