@@ -3,7 +3,7 @@
 </picture>
 
 <br><br>
-**A p2p swarm substrate for nodes that find each other, talk to each other, and work together.**
+**A tiny p2p substrate for agent swarms that discover each other, share capabilities, delegate work, broadcast questions, and run jobs on human or solar time.**
 
 [![PyPI](https://img.shields.io/pypi/v/synapse-p2p.svg)](https://pypi.python.org/pypi/synapse-p2p)
 [![Tests](https://github.com/dvf/synapse/actions/workflows/test.yml/badge.svg)](https://github.com/dvf/synapse/actions/workflows/test.yml)
@@ -14,14 +14,20 @@
 
 
 ```python
-from synapse_p2p import Node
+from synapse_p2p import Node, solar
 
 node = Node(
-    name="reviewer",
-    swarm="foo.electron.network",
-    capabilities=["code-review"],
+    name="garden-agent",
+    swarm="garden.example.com",
+    capabilities=["sensors", "watering"],
     mdns=True,
 )
+
+
+@node.periodic(solar("sunrise", latitude=51.5, longitude=-0.1, tz="Europe/London"))
+async def morning_check() -> None:
+    await node.broadcast("garden.status")
+
 
 await node.start()
 await node.join()
@@ -29,7 +35,7 @@ await node.join()
 
 Synapse gives you one primitive: **Node**.
 
-A node can discover peers, publish capabilities, expose endpoints, receive work, broadcast questions, reply into shared conversations, heartbeat peers, and notice when peers disappear. Synapse is not an agent framework. It is the clean network layer underneath one.
+A node can discover peers, publish capabilities, expose endpoints, receive work, broadcast questions, reply into shared conversations, run periodic jobs, heartbeat peers, and notice when peers disappear. Synapse isn't an agent framework, it's a library that gives you simple atomics to build on top of. 
 
 It also ships with a CLI tool to monitor your swarms:
 
@@ -45,6 +51,7 @@ It also ships with a CLI tool to monitor your swarms:
 
 ## Index
 
+- [What can you build with Synapse?](#what-can-you-build-with-synapse)
 - [Install](#install)
 - [Why Synapse](#why)
 - [30-second RPC](#30-second-rpc)
@@ -72,6 +79,21 @@ It also ships with a CLI tool to monitor your swarms:
 
 ---
 
+## What can you build with Synapse?
+
+Synapse is for small, composable agent swarms that need to find each other and coordinate without a central orchestrator.
+
+- **Research teams** — a planner broadcasts a question; specialist agents reply into the same conversation.
+- **Code-review swarms** — reviewers advertise capabilities like `security`, `tests`, or `docs`; a coordinator delegates work to the right peer.
+- **Local-first automations** — laptop, server, and Raspberry Pi agents discover each other over mDNS with no config.
+- **Scheduled agents** — run checks every 30 seconds, every weekday at 9am, or at sunrise/civil twilight using solar schedules.
+- **Live swarm dashboards** — use `sn watch` to see nodes join, heartbeat, message, and disappear in real time.
+- **Cross-language protocols** — speak length-prefixed MsgPack over TCP from Python today and other runtimes tomorrow.
+
+Synapse handles the swarm substrate: discovery, capabilities, RPC, broadcast conversations, liveness, and schedules. You bring the agent logic.
+
+---
+
 ## Install
 
 ```bash
@@ -94,15 +116,16 @@ sn --help
 
 ## Why
 
-LLM agents are often isolated. Synapse gives them a small shared substrate:
+Most agents are still isolated processes. Synapse gives them a shared substrate:
 
 - **discovery** — find nodes in the same swarm
-- **capabilities** — know what each node can do
-- **RPC** — call a named endpoint
-- **ask** — delegate a task to a node
-- **broadcast** — ask the whole swarm
+- **capabilities** — advertise what each node can do
+- **RPC** — call a named endpoint on a peer
+- **ask** — delegate a task to a capable node
+- **broadcast** — ask the whole swarm and collect replies
+- **periodic jobs** — run interval, cron, and solar schedules
 - **heartbeats** — know who is still around
-- **typed Python API** — no dictionary soup
+- **typed Python API** — avoid dictionary soup
 - **simple wire protocol** — length-prefixed MsgPack over TCP
 
 The goal is not to decide how agents think. The goal is to let them communicate.
@@ -390,6 +413,8 @@ Why this matters:
 
 ## Periodic tasks
 
+Agents do not only respond to messages. They also wake up: every few seconds, every weekday morning, or when the sun rises.
+
 Use `@node.periodic(...)` to run an async function on an interval, cron expression, or solar event while the node is running. Periodic tasks start with `await node.start()` or `node.run()`, and `await node.stop()` cancels scheduled and in-flight runs.
 
 ```python
@@ -406,6 +431,11 @@ async def refresh_cache() -> None:
 @node.periodic(cron("0 9 * * mon-fri", tz="Europe/London"))
 async def weekday_digest() -> None:
     print("weekday digest")
+
+
+@node.periodic(solar("sunrise", latitude=51.5, longitude=-0.1, tz="Europe/London"))
+async def sunrise_agent() -> None:
+    print("the sun is up; time to work")
 
 
 @node.periodic(solar("civil_twilight_begin", latitude=51.5, longitude=-0.1, tz="Europe/London"))
