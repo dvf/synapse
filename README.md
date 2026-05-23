@@ -12,6 +12,7 @@ Synapse is a tiny peer-to-peer substrate for agent infrastructure. Give each pro
 [![Tests](https://github.com/dvf/synapse/actions/workflows/test.yml/badge.svg)](https://github.com/dvf/synapse/actions/workflows/test.yml)
 [![License](https://img.shields.io/github/license/dvf/synapse)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
+![PyPI - Downloads](https://img.shields.io/pypi/dw/synapse-p2p)
 
 ```python
 from synapse_p2p import Node, solar
