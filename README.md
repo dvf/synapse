@@ -363,11 +363,48 @@ for reply in node.replies(broadcast):
     print(reply.peer.name, reply.result)
 ```
 
+Synapse also keeps a lightweight conversation event log. A broadcast creates a `message` event whose `conversation_id` is the broadcast nonce. Nodes may opt into the conversation with `ack` or other events; Synapse does not decide who should answer.
+
+```python
+@node.endpoint("team.question")
+async def answer(question: str, broadcast: Broadcast) -> dict:
+    # ACK means "I saw this and am choosing to wade in".
+    # It does not mean Synapse assigned this node the work.
+    await node.ack(broadcast, {"seen": True})
+    await node.reply(broadcast, {"answer": "I can help"})
+    return {"accepted": True}
+```
+
+Listen for conversation events:
+
+```python
+from synapse_p2p import ConversationEvent
+
+
+@node.on("conversation.ack")
+async def on_ack(event: ConversationEvent) -> None:
+    print(event.peer.name, "acked", event.conversation_id)
+
+
+for event in node.conversation(broadcast):
+    print(event.kind, event.peer.name, event.payload)
+```
+
+Built-in conversation event kinds are intentionally small conventions:
+
+- `message` — a broadcast or conversation message was seen
+- `ack` — a node chose to acknowledge / enter the conversation
+- `reply` — a node replied with a result
+
+Higher-level agent frameworks can layer routing, claiming, status, artifacts, or task semantics on top by emitting their own event kinds with `node.emit_conversation_event(...)`.
+
 Why this is useful:
 
 - one broadcast creates one shared conversation
 - every node sees the same nonce
-- replies group without a central coordinator
+- nodes can wade in or stay silent
+- ACK is opt-in, not automatic assignment
+- replies and events group without a central coordinator
 - UUIDv7 nonces keep conversations roughly time-ordered when the runtime supports them
 
 ---

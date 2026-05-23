@@ -5,6 +5,7 @@ from synapse_p2p import (
     BroadcastReply,
     Capability,
     Client,
+    ConversationEvent,
     MessagePackRPCSerializer,
     Node,
     NodeKind,
@@ -24,6 +25,7 @@ def test_substrate_types_are_exported_from_top_level_package():
     assert BroadcastReply is not None
     assert Capability is not None
     assert Client is not None
+    assert ConversationEvent is not None
     assert MessagePackRPCSerializer is not None
     assert Node is not None
     assert NodeKind is not None

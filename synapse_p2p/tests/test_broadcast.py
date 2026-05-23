@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from synapse_p2p import Broadcast, BroadcastReply, Client, Node
+from synapse_p2p import Broadcast, BroadcastReply, Client, ConversationEvent, Node
 
 
 @pytest.mark.asyncio
@@ -218,6 +218,129 @@ async def test_broadcast_reply_endpoint_deduplicates_forwarded_replies():
         assert len(node.replies("nonce")) == 1
     finally:
         await worker.stop()
+        await node.stop()
+
+
+@pytest.mark.asyncio
+async def test_broadcast_records_message_and_reply_conversation_events():
+    origin = Node(
+        name="origin",
+        swarm="foo.electron.network",
+        bind="127.0.0.1",
+        heartbeat_interval=None,
+    )
+    worker = Node(
+        name="worker",
+        swarm="foo.electron.network",
+        bind="127.0.0.1",
+        heartbeat_interval=None,
+    )
+
+    @worker.endpoint("team.question")
+    async def answer(question: str, broadcast: Broadcast) -> dict:
+        await worker.reply(broadcast, {"answer": question})
+        return {"accepted": True}
+
+    await origin.start()
+    await worker.start()
+    origin.add_peer(worker.self_peer())
+
+    try:
+        broadcast = await origin.broadcast("team.question", "who can help?")
+        await asyncio.sleep(0.05)
+
+        origin_events = origin.conversation(broadcast)
+        worker_events = worker.conversation(broadcast)
+
+        assert origin_events[0].kind == "message"
+        assert origin_events[0].event_id == broadcast.nonce
+        assert origin_events[0].payload["endpoint"] == "team.question"
+        assert any(event.kind == "reply" for event in origin_events)
+        assert worker_events[0].kind == "message"
+    finally:
+        await worker.stop()
+        await origin.stop()
+
+
+@pytest.mark.asyncio
+async def test_ack_is_opt_in_conversation_event_shared_with_origin():
+    origin = Node(
+        name="origin",
+        swarm="foo.electron.network",
+        bind="127.0.0.1",
+        heartbeat_interval=None,
+    )
+    worker = Node(
+        name="worker",
+        swarm="foo.electron.network",
+        bind="127.0.0.1",
+        heartbeat_interval=None,
+    )
+    acked = asyncio.Queue()
+
+    @origin.on("conversation.ack")
+    async def on_ack(event: ConversationEvent) -> None:
+        await acked.put(event)
+
+    @worker.endpoint("team.question")
+    async def answer(_question: str, broadcast: Broadcast) -> dict:
+        await worker.ack(broadcast, {"seen": True})
+        return {"accepted": True}
+
+    await origin.start()
+    await worker.start()
+    origin.add_peer(worker.self_peer())
+
+    try:
+        broadcast = await origin.broadcast("team.question", "who can help?")
+        event = await asyncio.wait_for(acked.get(), 0.2)
+
+        assert event.kind == "ack"
+        assert event.conversation_id == broadcast.nonce
+        assert event.parent_id == broadcast.nonce
+        assert event.peer.name == "worker"
+        assert event.payload == {"seen": True}
+        assert origin.conversation(broadcast)[-1].event_id == event.event_id
+    finally:
+        await worker.stop()
+        await origin.stop()
+
+
+@pytest.mark.asyncio
+async def test_conversation_event_endpoint_deduplicates_events():
+    node = Node(
+        name="node",
+        swarm="foo.electron.network",
+        bind="127.0.0.1",
+        heartbeat_interval=None,
+    )
+    peer = Node(
+        name="peer",
+        swarm="foo.electron.network",
+        bind="127.0.0.1",
+        heartbeat_interval=None,
+    )
+    event = ConversationEvent(
+        conversation_id="nonce",
+        event_id="event-1",
+        kind="ack",
+        peer=peer.self_peer(),
+        payload={"seen": True},
+    )
+
+    await node.start()
+    await peer.start()
+
+    try:
+        for _ in range(2):
+            await Client.from_peer(node.self_peer()).call(
+                "_synapse.conversation.event",
+                event.to_dict(),
+            )
+
+        assert len(node.conversation("nonce")) == 1
+    finally:
+        await peer.stop()
         await node.stop()
 
 

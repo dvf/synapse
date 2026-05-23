@@ -166,6 +166,45 @@ class ServedArtifact:
         )
 
 
+@dataclass(slots=True)
+class ConversationEvent:
+    """A small event appended to a shared swarm conversation."""
+
+    conversation_id: str
+    event_id: str
+    kind: str
+    peer: Peer
+    payload: dict[str, Any] = field(default_factory=dict)
+    parent_id: str | None = None
+    created_at: float = field(default_factory=time.time)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ConversationEvent:
+        return cls(
+            conversation_id=data["conversation_id"],
+            event_id=data["event_id"],
+            kind=data["kind"],
+            peer=Peer.from_dict(data["peer"]),
+            payload=dict(data.get("payload", {})),
+            parent_id=data.get("parent_id"),
+            created_at=float(data.get("created_at", time.time())),
+            metadata=dict(data.get("metadata", {})),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "conversation_id": self.conversation_id,
+            "event_id": self.event_id,
+            "kind": self.kind,
+            "peer": self.peer.to_dict(),
+            "payload": self.payload,
+            "parent_id": self.parent_id,
+            "created_at": self.created_at,
+            "metadata": self.metadata,
+        }
+
+
 def build_connection_from_peer_name(peer_name: tuple[str, int]) -> Connection:
     ip, port = peer_name
     identifier = sha256(f"{ip}:{port}".encode()).hexdigest()[:8]
