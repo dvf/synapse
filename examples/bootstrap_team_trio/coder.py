@@ -13,6 +13,17 @@ coder = Node(
     peer_timeout=20,
 )
 
+coder.artifact(
+    "agent-card",
+    {
+        "name": coder.name,
+        "role": coder.role,
+        "capabilities": ["python", "implementation"],
+        "description": "Creates implementation sketches and demo patches.",
+    },
+    mime_type="application/vnd.synapse.agent-card+json",
+)
+
 
 @coder.ask
 async def handle_task(task: str, context: dict):

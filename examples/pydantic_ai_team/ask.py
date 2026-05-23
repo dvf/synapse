@@ -1,15 +1,20 @@
 import asyncio
 
 from examples.pydantic_ai_team.common import SWARM
-from synapse_p2p import Node
+from synapse_p2p import ConversationEvent, Node
 
 node = Node(
     name="lead",
     role="team lead",
     swarm=SWARM,
-    capabilities=["broadcast"],
+    capabilities=["broadcast", "coordination"],
     mdns=True,
 )
+
+
+@node.on("conversation.ack")
+async def acked(event: ConversationEvent) -> None:
+    print(f"ack: {event.peer.name} joined conversation {event.conversation_id}")
 
 
 async def main() -> None:
@@ -17,8 +22,9 @@ async def main() -> None:
     await node.join(wait=1)
 
     broadcast = await node.broadcast(
-        "team.question",
+        "synapse.ask",
         "We are adding a live swarm CLI. Who can help, and what should we watch out for?",
+        context={"source": "examples/pydantic_ai_team/ask.py"},
     )
     print(f"broadcast: {broadcast.nonce}")
 

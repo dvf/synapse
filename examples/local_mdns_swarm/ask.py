@@ -1,6 +1,6 @@
 import asyncio
 
-from synapse_p2p import BroadcastReply, Node
+from synapse_p2p import BroadcastReply, ConversationEvent, Node
 
 node = Node(
     name="asker",
@@ -13,6 +13,11 @@ node = Node(
 @node.on("peer.joined")
 async def joined(peer) -> None:
     print(f"found: {peer.name} at {peer.address}:{peer.port}")
+
+
+@node.on("conversation.ack")
+async def acked(event: ConversationEvent) -> None:
+    print(f"ack: {event.peer.name} joined conversation {event.conversation_id}")
 
 
 async def wait_for_replies(broadcast, minimum: int = 1, timeout: float = 5) -> list[BroadcastReply]:
@@ -39,7 +44,11 @@ async def main() -> None:
             return
 
         print("asking swarm: Who can help ship this feature?")
-        broadcast = await node.broadcast("team.question", "Who can help ship this feature?")
+        broadcast = await node.broadcast(
+            "synapse.ask",
+            "Who can help ship this feature?",
+            context={"source": "examples/local_mdns_swarm/ask.py"},
+        )
         print(f"conversation: {broadcast.nonce}")
         replies = await wait_for_replies(broadcast, minimum=len(peers), timeout=5)
 

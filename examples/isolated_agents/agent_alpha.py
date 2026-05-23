@@ -11,6 +11,17 @@ node = Node(
     mdns=True,
 )
 
+node.artifact(
+    "agent-card",
+    {
+        "name": node.name,
+        "role": node.role,
+        "capabilities": ["delegate"],
+        "description": "Coordinates work and delegates tasks to beta.",
+    },
+    mime_type="application/vnd.synapse.agent-card+json",
+)
+
 
 @node.endpoint("alpha.ask_beta", description="Ask beta to handle a task")
 async def ask_beta(task: str):

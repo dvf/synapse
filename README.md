@@ -592,34 +592,19 @@ sn list-swarms --seconds 5
 
 ## 📚  Examples
 
-See [`examples/`](./examples).
+See [`examples/`](./examples). Each example folder has its own README.
 
-```bash
-# smallest RPC example
-python examples/basic_rpc/node.py
-python examples/basic_rpc/client.py
+| Example | What it demonstrates |
+| --- | --- |
+| [`basic_rpc`](./examples/basic_rpc) | The smallest direct RPC node/client pair. |
+| [`isolated_agents`](./examples/isolated_agents) | One node delegates to another through a known seed. |
+| [`bootstrap_team_trio`](./examples/bootstrap_team_trio) | Bootstrap discovery, ask handlers, and fetching agent cards. |
+| [`local_mdns_swarm`](./examples/local_mdns_swarm) | Zero-config mDNS discovery plus ACKs/replies in one conversation. |
+| [`pydantic_ai_team`](./examples/pydantic_ai_team) | Pydantic AI agents behind Synapse nodes. |
+| [`periodic_tasks`](./examples/periodic_tasks) | Interval, cron, sunrise, and sunset jobs in a garden-caretaker node. |
+| [`stock_trading_team`](./examples/stock_trading_team) | Analyst/news/trader swarm with a dumb paper exchange API and market-hours periodic scans. |
 
-# two nodes, one delegates to the other
-python examples/isolated_agents/agent_alpha.py
-python examples/isolated_agents/agent_beta.py
-python examples/isolated_agents/ask_alpha.py
-
-# local zero-config mDNS swarm
-python examples/local_mdns_swarm/reviewer.py
-python examples/local_mdns_swarm/coder.py
-python examples/local_mdns_swarm/ask.py
-
-# Pydantic AI team that replies over mDNS
-python examples/pydantic_ai_team/reviewer.py
-python examples/pydantic_ai_team/coder.py
-python examples/pydantic_ai_team/product.py
-python examples/pydantic_ai_team/ask.py
-
-# interval, cron, sunrise, and civil twilight jobs
-python examples/periodic_tasks.py
-```
-
-The Pydantic AI example uses `TestModel` by default, so it runs without API keys. Set `PYDANTIC_AI_MODEL`, for example `openai:gpt-5.2`, to use a real model.
+The agent examples use `synapse.ask`, opt-in ACKs, shared conversation replies, and advertised `agent-card` artifacts. The stock example shows a periodic job that checks market hours before asking the swarm, so agent/model work only happens when the paper market is open.
 
 ---
 

@@ -13,6 +13,11 @@ async def main() -> None:
             f"- {peer.name} kind={peer.kind} "
             f"at {peer.address}:{peer.port} capabilities={peer.capabilities}"
         )
+        try:
+            card = await Client.from_peer(peer).call("_synapse.artifact.get", "agent-card")
+        except RuntimeError:
+            continue
+        print(f"  agent-card: {card['content']}")
 
 
 if __name__ == "__main__":
