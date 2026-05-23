@@ -19,15 +19,16 @@ flowchart TB
         Exchange["paper-exchange<br/>dumb RPC API + seed"]
     end
 
-    Trader --> Conversation
-    Analyst --> Conversation
-    News --> Conversation
+    Trader -->|"starts synapse.ask"| Conversation
+    Analyst -->|"ACK + analysis reply"| Conversation
+    News -->|"ACK + news reply"| Conversation
+    Conversation -->|"node.replies(conversation)"| Trader
     Exchange -. can observe .- Conversation
 
     Trader -->|"RPC: market_status / quote / order"| Exchange
 ```
 
-The exchange is the dumb API/bootstrap node. The trader periodically checks market status through RPC. When the market is open, the trader starts a shared `synapse.ask` conversation. Analyst and news nodes can wade in with ACKs and replies. The exchange can observe the same swarm conversation, but it mostly stays dumb and serves API calls.
+The exchange is the dumb API/bootstrap node. The trader periodically checks market status through RPC. When the market is open, the trader starts a shared `synapse.ask` conversation. Analyst and news nodes can wade in with ACKs and replies. The trader reads those replies from its local conversation state with `node.replies(conversation)`. The exchange can observe the same swarm conversation, but it mostly stays dumb and serves API calls.
 
 Run it in four terminals:
 
