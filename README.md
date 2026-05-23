@@ -3,21 +3,21 @@
 </picture>
 
 <br><br>
-**A p2p substrate for building agent swarms that discover each other, share capabilities, delegate work, broadcast questions, and run jobs on human or solar time.**
+
+**Build agent swarms: teams of named nodes that discover each other, share abilities, join conversations, expose custom endpoints, and wake up on schedules like sunrise.**
+
+Synapse is a tiny peer-to-peer substrate for agent infrastructure. Give each process a `Node`; Synapse gives that node a name, peers, capabilities, RPC endpoints, shared conversations, agent cards, heartbeats, and periodic tasks.
 
 [![PyPI](https://img.shields.io/pypi/v/synapse-p2p.svg)](https://pypi.python.org/pypi/synapse-p2p)
 [![Tests](https://github.com/dvf/synapse/actions/workflows/test.yml/badge.svg)](https://github.com/dvf/synapse/actions/workflows/test.yml)
 [![License](https://img.shields.io/github/license/dvf/synapse)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 
-<br>
-
-
 ```python
 from synapse_p2p import Node, solar
 
 node = Node(
-    name="garden-agent",
+    name="garden-node",
     swarm="garden.example.com",
     capabilities=["sensors", "watering"],
     mdns=True,
@@ -29,84 +29,57 @@ async def morning_check() -> None:
     await node.broadcast("garden.status")
 
 
-await node.start()
-await node.join()
+node.run()
 ```
 
-Synapse gives you one primitive: **Node**.
+A node can wrap an LLM agent, a script, a service, a sensor, or a tool. Synapse is not the agent brain. It is the swarm layer agents stand on.
 
-A node can discover peers, publish capabilities, expose endpoints, receive work, broadcast questions, reply into shared conversations, run periodic jobs, heartbeat peers, and notice when peers disappear. Synapse isn't an agent framework, it's a library that gives you simple atomics to build on top of. 
+What makes it fun:
 
-It also ships with a CLI tool to monitor your swarms:
-
-```bash
-> sn watch foo.electron.network
-```
-
-<picture>
-<img width="1268" alt="image" src="https://github.com/user-attachments/assets/3b08371b-2a1b-465f-8939-cbf0a0ba219c" />
-</picture>
+- **Swarms are teams** — nodes find teammates by swarm name.
+- **Nodes have names and abilities** — advertise `code-review`, `weather`, `memory`, `watering`, anything.
+- **Shared conversations** — broadcast once; many nodes can wade in, reply, leave, and come back later.
+- **Custom endpoints** — expose any async function as swarm-callable RPC.
+- **Agent cards** — publish metadata so peers can understand what you are.
+- **Periodic tasks** — start work every minute, every weekday, or literally at sunrise.
 
 ---
 
-## Index
+## 🧭 Table of contents
 
-- [What can you build with Synapse?](#what-can-you-build-with-synapse)
-- [Install](#install)
-- [Why Synapse](#why)
-- [30-second RPC](#30-second-rpc)
-- [Swarms](#swarms)
-- [Discovery](#local-discovery-mdns)
-  - [Local discovery: mDNS](#local-discovery-mdns)
-  - [Remote discovery: seeds](#remote-discovery-seeds)
-- [Capabilities](#capabilities)
-- [Advertised artifacts and agent cards](#advertised-artifacts-and-agent-cards)
-- [Ask](#ask)
-- [Broadcast conversations](#broadcast)
-- [Periodic tasks](#periodic-tasks)
-- [Heartbeats and liveness](#heartbeats)
-- [CLI](#cli)
-  - [`sn watch`](#sn-watch)
-  - [`sn broadcast`](#sn-broadcast)
-  - [`sn list-swarms`](#sn-list-swarms)
-- [Typed peer API](#typed-peer-api)
-- [Examples](#examples)
-- [Built-in endpoints](#built-in-endpoints)
-- [Wire protocol](#wire-protocol)
-- [Logging](#logging)
-- [What Synapse is not](#what-synapse-is-not)
-- [Roadmap](#roadmap)
+- [📦 Install](#install)
+- [🧠 The mental model](#the-mental-model)
+- [✨ Why it feels different](#why-it-feels-different)
+- [🛠️ What can you build?](#what-can-you-build)
+- [⚖️ Synapse vs A2A](#synapse-vs-a2a)
+- [⚡ Quickstart: RPC](#quickstart-rpc)
+- [🐝 Swarms and discovery](#swarms-and-discovery)
+- [🎯 Capabilities](#capabilities)
+- [🤝 Ask: delegate work](#ask-delegate-work)
+- [💬 Broadcast: ask the swarm](#broadcast-ask-the-swarm)
+- [🌅 Periodic tasks](#periodic-tasks)
+- [🪪 Artifacts and agent cards](#artifacts-and-agent-cards)
+- [💓 Heartbeats](#heartbeats)
+- [🖥️ CLI](#cli)
+- [📚 Examples](#examples)
+- [🔌 Protocol details](#protocol-details)
+- [🚫 What Synapse is not](#what-synapse-is-not)
 
 ---
 
-## What can you build with Synapse?
-
-Synapse is for small, composable agent swarms that need to find each other and coordinate without a central orchestrator.
-
-- **Research teams** — a planner broadcasts a question; specialist agents reply into the same conversation.
-- **Code-review swarms** — reviewers advertise capabilities like `security`, `tests`, or `docs`; a coordinator delegates work to the right peer.
-- **Local-first automations** — laptop, server, and Raspberry Pi agents discover each other over mDNS with no config.
-- **Scheduled agents** — run checks every 30 seconds, every weekday at 9am, or at sunrise/civil twilight using solar schedules.
-- **Live swarm dashboards** — use `sn watch` to see nodes join, heartbeat, message, and disappear in real time.
-- **Cross-language protocols** — speak length-prefixed MsgPack over TCP from Python today and other runtimes tomorrow.
-
-Synapse handles the swarm substrate: discovery, capabilities, RPC, broadcast conversations, liveness, and schedules. You bring the agent logic.
-
----
-
-## Install
+## 📦 Install
 
 ```bash
 uv add synapse-p2p
 ```
 
-or 
+or:
 
-```
+```bash
 pip install synapse-p2p
 ```
 
-Then use the CLI:
+Then:
 
 ```bash
 sn --help
@@ -114,29 +87,107 @@ sn --help
 
 ---
 
-## Why
+## 🧠 The mental model
 
-Most agents are still isolated processes. Synapse gives them a shared substrate:
+Synapse uses these words carefully:
 
-- **discovery** — find nodes in the same swarm
-- **capabilities** — advertise what each node can do
-- **RPC** — call a named endpoint on a peer
-- **ask** — delegate a task to a capable node
-- **broadcast** — ask the whole swarm and collect replies
-- **periodic jobs** — run interval, cron, and solar schedules
-- **heartbeats** — know who is still around
-- **typed Python API** — avoid dictionary soup
-- **simple wire protocol** — length-prefixed MsgPack over TCP
+| Word | Meaning |
+| --- | --- |
+| **Node** | A running Synapse participant. You create one with `Node(...)`. |
+| **Peer** | Another node this node knows about. |
+| **Swarm** | Nodes with the same `swarm` name. |
+| **Agent** | Your higher-level logic: an LLM loop, workflow, script, or automation. |
+| **Capability** | A short advertised skill like `code-review`, `web-research`, or `watering`. |
+| **Endpoint** | An async function peers can call over RPC. |
 
-The goal is not to decide how agents think. The goal is to let them communicate.
+Use **node** for Synapse networking. Use **agent** for the logic you put behind a node.
+
+Synapse gives nodes:
+
+- a **name** and swarm identity
+- **peer discovery** over mDNS or seeds
+- advertised **capabilities / abilities**
+- custom async **RPC endpoints**
+- direct **task delegation**
+- **shared broadcast conversations**
+- **agent cards** and other advertised metadata
+- **periodic tasks** on interval, cron, or solar time
+- **heartbeats** and offline detection
+- a simple MsgPack-over-TCP protocol
 
 ---
 
-## 30-second RPC
+## ✨ Why it feels different
 
-This is the smallest useful Synapse program: one node exposes an RPC endpoint, and one client calls it.
+Most agent frameworks start with one agent loop. Synapse starts with the swarm.
 
-Create a node:
+```text
+planner-node ── broadcasts "who can review this?"
+      │
+      ├── security-node replies now
+      ├── tests-node replies now
+      └── docs-node replies later using the same conversation nonce
+```
+
+A node can join a swarm, advertise what it can do, expose custom endpoints, publish an agent card, and participate in conversations without a central coordinator.
+
+Periodic tasks make nodes feel alive:
+
+```python
+@node.periodic(solar("sunrise", latitude=51.5, longitude=-0.1, tz="Europe/London"))
+async def wake_up() -> None:
+    await node.broadcast("daily.start")
+```
+
+---
+
+## 🛠️ What can you build?
+
+- **Research swarms** — a planner node broadcasts a question; specialist nodes wade into the same conversation.
+- **Code-review teams** — nodes advertise `security`, `tests`, or `docs`; a coordinator delegates to the right peer.
+- **Local-first automations** — laptop, server, and Raspberry Pi nodes discover each other with mDNS.
+- **Sunrise agents** — a node starts work at sunrise, sunset, or civil twilight.
+- **Internal agent APIs** — put an LLM agent behind a custom endpoint so other nodes can discover and call it.
+- **Self-describing tools** — publish an agent card with name, role, abilities, input modes, and output modes.
+- **Live dashboards** — watch joins, heartbeats, messages, replies, and offline events with `sn watch`.
+
+Synapse handles the substrate. You bring the behavior.
+
+---
+
+## ⚖️ Synapse vs A2A
+
+A2A is a full agent interoperability protocol. Synapse is much smaller: a peer-to-peer substrate for nodes that need to find each other and talk.
+
+Use **A2A** when you need a formal cross-vendor agent protocol with task lifecycle, message parts, artifacts, streaming, push notifications, and enterprise-style integration points.
+
+Use **Synapse** when you want to build a swarm quickly:
+
+| A2A | Synapse |
+| --- | --- |
+| Agent protocol | Swarm substrate |
+| HTTP / JSON-RPC oriented | Length-prefixed MsgPack over TCP |
+| Formal task lifecycle | Simple RPC, ask, and broadcast |
+| Agent cards are central | Agent cards are optional artifacts |
+| More concepts to implement | One main primitive: `Node` |
+| Best for interoperability | Best for local-first swarms and fast experimentation |
+
+Synapse is intentionally less bloated:
+
+- no required task state machine
+- no required message/part/artifact object model
+- no server/client role ceremony inside a swarm
+- no central coordinator
+- no hosted registry requirement
+- no opinion about how agents think
+
+The core idea is simple: start nodes, advertise abilities, call endpoints, broadcast into shared conversations, and run periodic jobs.
+
+---
+
+## ⚡ Quickstart: RPC
+
+Create a node with an endpoint:
 
 ```python
 from synapse_p2p import Node
@@ -170,34 +221,23 @@ asyncio.run(main())
 
 ---
 
-## Swarms
+## 🐝 Swarms and discovery
 
-A swarm is a group of nodes with the same swarm name. Nodes only join and heartbeat peers in the same swarm.
+A **swarm** is a group of nodes with the same `swarm` name. Nodes only join and heartbeat peers in their own swarm.
 
 ```python
 node = Node(
     name="coder",
-    role="implementation",
     swarm="foo.electron.network",
     capabilities=["python", "tests"],
 )
 ```
 
-Use a domain-style name to avoid collisions:
+Use a domain-style swarm name to avoid collisions.
 
-```text
-foo.electron.network
-```
+### 📡 Local discovery with mDNS
 
-Need subgroups? Use optional `team`. It defaults to `"default"`.
-
----
-
-## Local discovery: mDNS
-
-Use mDNS for local, zero-config discovery on the same LAN.
-
-For local machines on the same network:
+Use mDNS for zero-config discovery on a LAN:
 
 ```python
 node = Node(
@@ -213,21 +253,9 @@ await node.join()
 
 Any node on the same LAN with the same `swarm` and `mdns=True` can discover it.
 
-Synapse advertises:
+### 🌍 Remote discovery with seeds
 
-```text
-_synapse._tcp.local.
-```
-
-mDNS is local by design. It usually does not cross routers, VPN boundaries, or restrictive firewalls.
-
----
-
-## Remote discovery: seeds
-
-Use seeds when mDNS is not enough: private networks, remote machines, explicit bootstrap nodes, or internet-reachable hosts.
-
-For private networks or internet-reachable hosts, use seeds:
+Use seeds when nodes are not on the same LAN:
 
 ```python
 node = Node(
@@ -242,19 +270,17 @@ await node.join()
 
 A seed is just another Synapse node. It is a first contact point, not a coordinator. Once joined, nodes exchange known peers and can talk directly.
 
-By default, nodes listen on `0.0.0.0` and advertise an auto-detected reachable local address. For same-machine-only experiments, use `bind="127.0.0.1"`.
-
 ---
 
-## Capabilities
+## 🎯 Capabilities
 
-Simple:
+Capabilities tell peers what a node can do.
 
 ```python
 node = Node(capabilities=["python", "code-review"])
 ```
 
-Structured:
+Use structured capabilities when you want descriptions and schemas:
 
 ```python
 from synapse_p2p import Capability, Node
@@ -272,7 +298,7 @@ node = Node(
 )
 ```
 
-Inspect a node:
+Inspect a peer:
 
 ```python
 info = await client.call("_node.info")
@@ -282,67 +308,13 @@ methods = await client.call("_synapse.methods")
 
 ---
 
-## Advertised artifacts and agent cards
+## 🤝 Ask: delegate work
 
-Nodes can advertise small metadata documents or resources that peers can fetch over Synapse RPC.
-Synapse does not interpret the document; it only serves the bytes/JSON plus a MIME type. Higher-level agents decide what they understand.
-
-An A2A-style agent card can be published as just another artifact:
+Use `@node.ask` for the default task handler on a node.
 
 ```python
 from synapse_p2p import Node
 
-node = Node(
-    name="Tiny Review LLC",
-    role="reviewer",
-    swarm="code.review",
-    capabilities=["code-review", "pytest"],
-)
-
-node.artifact(
-    "agent-card",
-    {
-        "name": node.name,
-        "description": "Reviews Python PRs and returns concise feedback.",
-        "capabilities": ["code-review", "pytest"],
-        "input_modes": ["text", "git-diff", "url"],
-        "output_modes": ["text/markdown", "text/x-diff"],
-    },
-    mime_type="application/vnd.synapse.agent-card+json",
-    description="Self-description for agents that understand agent cards.",
-)
-```
-
-Peers discover and fetch advertised artifacts with system endpoints:
-
-```python
-from synapse_p2p import Client
-
-client = Client.from_peer(peer)
-
-artifacts = await client.call("_synapse.artifacts")
-# [{"name": "agent-card", "mime_type": "application/vnd.synapse.agent-card+json", ...}]
-
-agent_card = await client.call("_synapse.artifact.get", "agent-card")
-print(agent_card["mime_type"])
-print(agent_card["content"])
-```
-
-MIME types are conventions for consumers:
-
-- `application/vnd.synapse.agent-card+json` — a Synapse/A2A-style self-description
-- `application/vnd.synapse.capability-schema+json` — capability-specific input/output schema
-- `text/markdown`, `application/pdf`, `image/png`, `text/x-diff` — normal document/file types
-
-For now, artifacts are small inline documents served over RPC. Large artifacts can advertise external URIs in their content or metadata.
-
----
-
-## Ask
-
-Register one ask handler:
-
-```python
 node = Node(name="reviewer", capabilities=["code-review"])
 
 
@@ -351,9 +323,11 @@ async def handle(task: str, context: dict):
     return {"status": "done", "task": task}
 ```
 
-Ask another node:
+Ask a peer to do work:
 
 ```python
+from synapse_p2p import Client
+
 result = await Client.from_peer(peer).call(
     "_node.ask",
     "Review this diff",
@@ -363,25 +337,15 @@ result = await Client.from_peer(peer).call(
 
 ---
 
-## Broadcast
+## 💬 Broadcast: ask the swarm
 
-Broadcast starts a swarm conversation. It is the simplest way to ask the whole swarm a question and let any capable node reply.
+Use broadcast when you do not know which node should answer.
 
 ```python
 broadcast = await node.broadcast("team.question", "Who can review this diff?")
 ```
 
-That returns a `Broadcast` object:
-
-```python
-broadcast.nonce   # conversation id
-broadcast.origin  # peer that started it
-broadcast.endpoint
-```
-
-The nonce is the conversation atom. Synapse creates UUIDv7 nonces when the Python runtime supports them, so conversations are unique and time-sortable. On older runtimes it falls back to UUIDv4.
-
-Every receiver gets the same `Broadcast` object. Any node can reply into that conversation by reusing the nonce through `node.reply(...)`:
+Every receiver gets the same conversation nonce. Any node can reply:
 
 ```python
 from synapse_p2p import Broadcast
@@ -393,29 +357,25 @@ async def answer(question: str, broadcast: Broadcast) -> dict:
     return {"accepted": True}
 ```
 
-The origin node groups all replies by nonce:
+The origin node can read all replies:
 
 ```python
 for reply in node.replies(broadcast):
     print(reply.peer.name, reply.result)
 ```
 
-Why this matters:
+Why this is useful:
 
-- one broadcast creates one shared event
-- the nonce is the conversation id
-- every agent sees the same nonce
-- any agent can participate by replying with that nonce
+- one broadcast creates one shared conversation
+- every node sees the same nonce
 - replies group without a central coordinator
-- UUIDv7 nonces keep conversation ids roughly ordered by creation time
+- UUIDv7 nonces keep conversations roughly time-ordered when the runtime supports them
 
 ---
 
-## Periodic tasks
+## 🌅 Periodic tasks
 
-Agents do not only respond to messages. They also wake up: every few seconds, every weekday morning, or when the sun rises.
-
-Use `@node.periodic(...)` to run an async function on an interval, cron expression, or solar event while the node is running. Periodic tasks start with `await node.start()` or `node.run()`, and `await node.stop()` cancels scheduled and in-flight runs.
+Nodes can wake up on a schedule: every few seconds, every weekday morning, or when the sun rises.
 
 ```python
 from synapse_p2p import Node, cron, every, solar
@@ -434,19 +394,14 @@ async def weekday_digest() -> None:
 
 
 @node.periodic(solar("sunrise", latitude=51.5, longitude=-0.1, tz="Europe/London"))
-async def sunrise_agent() -> None:
+async def sunrise_job() -> None:
     print("the sun is up; time to work")
-
-
-@node.periodic(solar("civil_twilight_begin", latitude=51.5, longitude=-0.1, tz="Europe/London"))
-async def dawn_check() -> None:
-    print("civil twilight has begun")
 
 
 node.run()
 ```
 
-For simple intervals, a number is shorthand for seconds:
+A number is shorthand for seconds:
 
 ```python
 @node.periodic(30)  # equivalent to every(seconds=30)
@@ -464,15 +419,49 @@ Solar events include `sunrise`, `sunset`, `solar_noon`, `civil_twilight_begin`, 
 
 Notes:
 
-- The decorated function must be `async def` and take no arguments.
-- The first run starts immediately when the node starts; later runs follow the schedule.
-- Long-running tasks can overlap if a previous run is still active when the next scheduled time arrives.
-- Exceptions are logged and do not stop future runs.
-- Tasks added after `await node.start()` are scheduled immediately.
+- periodic handlers must be `async def`
+- the first run starts immediately when the node starts
+- later runs follow the schedule
+- exceptions are logged and do not stop future runs
+- long-running tasks can overlap if the next scheduled time arrives first
 
 ---
 
-## Heartbeats
+## 🪪 Artifacts and agent cards
+
+Nodes can advertise small metadata documents that peers can fetch over RPC.
+
+```python
+node.artifact(
+    "agent-card",
+    {
+        "name": node.name,
+        "description": "Reviews Python PRs and returns concise feedback.",
+        "capabilities": ["code-review", "pytest"],
+        "input_modes": ["text", "git-diff", "url"],
+        "output_modes": ["text/markdown", "text/x-diff"],
+    },
+    mime_type="application/vnd.synapse.agent-card+json",
+    description="Self-description for peers that understand agent cards.",
+)
+```
+
+Fetch artifacts from a peer:
+
+```python
+from synapse_p2p import Client
+
+client = Client.from_peer(peer)
+
+artifacts = await client.call("_synapse.artifacts")
+agent_card = await client.call("_synapse.artifact.get", "agent-card")
+```
+
+Synapse does not interpret artifacts. It serves bytes/JSON plus a MIME type. Your application decides what the artifact means.
+
+---
+
+## 💓 Heartbeats
 
 Nodes heartbeat known peers and mark stale peers offline.
 
@@ -496,7 +485,7 @@ Offline means “not seen within `peer_timeout`.”
 
 ---
 
-## CLI
+## 🖥️ CLI
 
 The CLI is `sn`.
 
@@ -504,29 +493,15 @@ The CLI is `sn`.
 sn --help
 ```
 
-`sn` uses mDNS by default, so local swarms work with zero configuration. Use `--seed host:port` for seed discovery, or `--no-mdns` to disable local discovery.
-
-### `sn watch`
-
-Watch a swarm live:
+### 👀 Watch a swarm
 
 ```bash
 sn watch foo.electron.network
 ```
 
-`sn watch` opens an in-place terminal dashboard:
-
-- left pane: swarm name, this watcher, peers, online dots, addresses, capabilities
-- right pane: chatter/debug log for joins, messages, replies, offline events, and optional heartbeats
-
-Peer dots:
-
-| Dot | Meaning |
-| --- | --- |
-| bright green | fresh join/heartbeat pulse |
-| muted green | online |
-| yellow | stale, waiting for timeout |
-| red | offline |
+<picture>
+<img width="1268" alt="image" src="https://github.com/user-attachments/assets/3b08371b-2a1b-465f-8939-cbf0a0ba219c" />
+</picture>
 
 Useful options:
 
@@ -537,69 +512,26 @@ sn watch foo.electron.network --team backend
 sn watch foo.electron.network --no-capabilities
 ```
 
-
-### `sn broadcast`
-
-Broadcast a message to known swarm peers and stream replies:
+### 📣 Broadcast from the terminal
 
 ```bash
 sn broadcast foo.electron.network "Who can review this diff?"
-```
-
-Keep listening for late replies:
-
-```bash
 sn broadcast foo.electron.network "Who can help?" --forever
-```
-
-Tune discovery and reply timeout:
-
-```bash
 sn broadcast foo.electron.network "Ship status?" --discover 2 --timeout 10
 ```
 
-Broadcast replies are grouped by the broadcast nonce, so all agents can participate in one shared conversation.
-
-
-### `sn list-swarms`
-
-List local mDNS-visible swarms:
+### 📋 List local swarms
 
 ```bash
 sn list-swarms
-```
-
-Scan for longer:
-
-```bash
 sn list-swarms --seconds 5
 ```
 
-
 ---
 
-## Typed peer API
-
-Use dataclasses, not dictionaries:
-
-```python
-peers = await Client("127.0.0.1", 9000).peers()
-reviewer = next(peer for peer in peers if "code-review" in peer.capabilities)
-result = await Client.from_peer(reviewer).call("_node.ask", "Review this")
-```
-
-Useful exports:
-
-```python
-from synapse_p2p import Broadcast, BroadcastReply, Capability, Client, Node, Peer
-```
-
----
-
-## Examples
+## 📚 Examples
 
 See [`examples/`](./examples).
-
 
 ```bash
 # two nodes, one delegates to the other
@@ -612,24 +544,23 @@ python examples/local_mdns_swarm/reviewer.py
 python examples/local_mdns_swarm/coder.py
 python examples/local_mdns_swarm/ask.py
 
-# Pydantic AI team that actually replies over mDNS
+# Pydantic AI team that replies over mDNS
 python examples/pydantic_ai_team/reviewer.py
 python examples/pydantic_ai_team/coder.py
 python examples/pydantic_ai_team/product.py
 python examples/pydantic_ai_team/ask.py
 
-# periodic jobs: interval, cron, sunrise, and civil twilight
+# interval, cron, sunrise, and civil twilight jobs
 python examples/periodic_tasks.py
 ```
 
 The Pydantic AI example uses `TestModel` by default, so it runs without API keys. Set `PYDANTIC_AI_MODEL`, for example `openai:gpt-5.2`, to use a real model.
 
-
 ---
 
-## Built-in endpoints
+## 🔌 Protocol details
 
-Substrate endpoints:
+Built-in endpoints:
 
 | Endpoint | Purpose |
 | --- | --- |
@@ -640,22 +571,13 @@ Substrate endpoints:
 | `_synapse.join` | join through a seed |
 | `_synapse.heartbeat` | update peer liveness |
 | `_synapse.broadcast.reply` | reply to a broadcast nonce |
-
-Node endpoints:
-
-| Endpoint | Purpose |
-| --- | --- |
+| `_synapse.artifacts` | list advertised artifacts |
+| `_synapse.artifact.get` | fetch one advertised artifact |
 | `_node.info` | name, role, description, capabilities |
 | `_node.capabilities` | machine-readable capabilities |
 | `_node.ask` | delegate to the node ask handler |
 
----
-
-## Wire protocol
-
-Synapse speaks length-prefixed MsgPack over TCP.
-
-Each frame is:
+Wire format:
 
 1. 4-byte unsigned big-endian payload length
 2. MsgPack payload bytes
@@ -684,21 +606,14 @@ Response:
 }
 ```
 
-Low-level helpers:
+Useful low-level exports:
 
 ```python
+from synapse_p2p import Broadcast, BroadcastReply, Capability, Client, Node, Peer
 from synapse_p2p import RPCError, RPCRequest, RPCResponse
-from synapse_p2p.framing import read_frame, write_frame
-from synapse_p2p.serializers import MessagePackRPCSerializer
 ```
 
----
-
-## Logging
-
-Synapse is quiet by default.
-
-Enable internal logs when debugging:
+Enable logs when debugging:
 
 ```python
 from loguru import logger
@@ -708,30 +623,18 @@ logger.enable("synapse_p2p")
 
 ---
 
-## What Synapse is not
+## 🚫 What Synapse is not
 
 Synapse does **not** implement planning, memory, consensus, auth policy, NAT traversal, hosted registries, or UX.
 
-Those belong in packages above Synapse.
+Those belong above Synapse.
 
 Synapse is the substrate:
 
-> nodes + discovery + capabilities + heartbeats + broadcasts + a tiny protocol
+> nodes + discovery + capabilities + heartbeats + broadcasts + schedules + a tiny protocol
 
 ---
 
-## Roadmap
-
-mDNS and seeds work today. Natural next providers:
-
-- DNS SRV/TXT for domain-backed swarms
-- registries and rendezvous servers
-- relays for unreachable peers
-- NAT traversal
-- authenticated swarms
-
----
-
-## Keywords
+## 🔎 Keywords
 
 swarm substrate, agent substrate, node discovery, local mDNS discovery, agent-to-agent networking, LLM agent RPC, multi-agent systems, capability discovery, language-agnostic RPC, Python RPC, asyncio RPC, peer-to-peer Python, P2P networking, MsgPack RPC, TCP RPC, distributed agents.
