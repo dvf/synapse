@@ -6,9 +6,12 @@ from synapse_p2p import Broadcast, Node, Peer
 from synapse_p2p.cli import (
     CHATTER_LIMIT,
     OFFLINE_PEER_RETENTION,
+    _ask,
     _broadcast,
     _chatter_text,
     _format_result,
+    _loopback_only,
+    _parse_key_value,
     _parse_seed,
     _peer_label,
     _peer_line,
@@ -20,6 +23,19 @@ from synapse_p2p.cli import (
 
 def test_parse_seed_defaults_to_empty_list():
     assert _parse_seed(None) == []
+
+
+def test_parse_key_value_context():
+    assert _parse_key_value(["diff=abc", "url=https://example.com"]) == {
+        "diff": "abc",
+        "url": "https://example.com",
+    }
+
+
+def test_loopback_only_supports_string_and_tuple_seeds():
+    assert _loopback_only(["127.0.0.1:9999", ("127.0.0.1", 8888)], mdns=False) is True
+    assert _loopback_only(["192.168.1.10:9999"], mdns=False) is False
+    assert _loopback_only(["127.0.0.1:9999"], mdns=True) is False
 
 
 def test_offline_peer_retention_is_a_few_minutes():
@@ -163,6 +179,66 @@ async def test_cli_broadcast_streams_replies_from_seed_peer(monkeypatch):
     assert any(line.startswith("broadcast: ") for line in output)
     assert any("worker" in line and "heard hello" in line for line in output)
     assert "no replies" not in output
+
+
+@pytest.mark.asyncio
+async def test_cli_ask_streams_acks_and_replies_from_seed_peer(monkeypatch):
+    output: list[str] = []
+    worker = Node(
+        name="worker",
+        swarm="foo.electron.network",
+        bind="127.0.0.1",
+        advertise="127.0.0.1",
+        heartbeat_interval=None,
+    )
+
+    @worker.ask
+    async def handle(task: str, context: dict):
+        return {"answer": f"handled {task} with {context['kind']}"}
+
+    listener = await worker.start()
+    _host, port = listener.sockets[0].getsockname()[:2]
+    monkeypatch.setattr("synapse_p2p.cli.typer.echo", output.append)
+
+    try:
+        await _ask(
+            "foo.electron.network",
+            "default",
+            "review this",
+            "asker",
+            [("127.0.0.1", port)],
+            False,
+            0,
+            1,
+            {"kind": "diff"},
+        )
+    finally:
+        await worker.stop()
+
+    assert any(line.startswith("ask: ") for line in output)
+    assert any("worker acked" in line for line in output)
+    assert any("worker" in line and "handled review this with diff" in line for line in output)
+    assert "no replies" not in output
+
+
+@pytest.mark.asyncio
+async def test_cli_ask_times_out_cleanly_without_replies(monkeypatch):
+    output: list[str] = []
+    monkeypatch.setattr("synapse_p2p.cli.typer.echo", output.append)
+
+    await _ask(
+        "foo.electron.network",
+        "default",
+        "hello",
+        "asker",
+        [],
+        False,
+        0,
+        0.01,
+    )
+
+    assert any(line.startswith("ask: ") for line in output)
+    assert "no replies" in output
 
 
 @pytest.mark.asyncio

@@ -61,7 +61,7 @@ What makes it fun:
 - [Swarms and discovery](#swarms-and-discovery)
 - [Capabilities](#capabilities)
 - [Ask: delegate work](#ask-delegate-work)
-- [Broadcast: ask the swarm](#broadcast-ask-the-swarm)
+- [Broadcast: shared conversations](#broadcast-shared-conversations)
 - [Periodic tasks](#periodic-tasks)
 - [Artifacts and agent cards](#artifacts-and-agent-cards)
 - [Heartbeats](#heartbeats)
@@ -313,7 +313,7 @@ methods = await client.call("_synapse.methods")
 
 ## 🤝 Ask: delegate work
 
-Use `@node.ask` for the default task handler on a node.
+Use `@node.ask` for the default task handler on a node. Synapse provides the transport; your agent code decides whether and how to answer.
 
 ```python
 from synapse_p2p import Node
@@ -326,7 +326,11 @@ async def handle(task: str, context: dict):
     return {"status": "done", "task": task}
 ```
 
-Ask a peer to do work:
+There are two ways to use it.
+
+### Direct ask
+
+Call one known peer directly with `_node.ask`:
 
 ```python
 from synapse_p2p import Client
@@ -338,9 +342,29 @@ result = await Client.from_peer(peer).call(
 )
 ```
 
+### Swarm ask
+
+Broadcast to the built-in `synapse.ask` endpoint when you want any interested node to wade in:
+
+```python
+broadcast = await node.broadcast(
+    "synapse.ask",
+    "Review this diff",
+    context={"diff": diff},
+)
+```
+
+A node with an `@node.ask` handler will ACK the conversation, run the handler, and reply with the result. Nodes without a handler fail quietly from the caller's point of view, just like any other broadcast recipient that cannot help.
+
+The CLI wraps this flow:
+
+```bash
+sn ask foo.electron.network "Review this diff" --context url=https://github.com/org/repo/pull/1
+```
+
 ---
 
-## 💬 Broadcast: ask the swarm
+## 💬 Broadcast: shared conversations
 
 Use broadcast when you do not know which node should answer.
 
@@ -552,6 +576,25 @@ sn watch foo.electron.network --team backend
 sn watch foo.electron.network --no-capabilities
 ```
 
+### 🙋 Ask from the terminal
+
+`sn ask` broadcasts to the built-in `synapse.ask` endpoint. Nodes with a `@node.ask` handler can opt in with ACK and reply with their result.
+
+```bash
+sn ask foo.electron.network "Review this diff"
+sn ask foo.electron.network "Review this diff" --context url=https://github.com/org/repo/pull/1
+sn ask foo.electron.network "Who can help?" --forever
+```
+
+Example output:
+
+```text
+ask: 019e4ab0-1d0d-709a-...
+waiting for ACKs and replies... press Ctrl+C to stop
+✓ reviewer acked
+- reviewer: LGTM after fixing tests
+```
+
 ### 📣 Broadcast from the terminal
 
 ```bash
@@ -611,11 +654,13 @@ Built-in endpoints:
 | `_synapse.join` | join through a seed |
 | `_synapse.heartbeat` | update peer liveness |
 | `_synapse.broadcast.reply` | reply to a broadcast nonce |
+| `_synapse.conversation.event` | gossip a shared conversation event |
 | `_synapse.artifacts` | list advertised artifacts |
 | `_synapse.artifact.get` | fetch one advertised artifact |
 | `_node.info` | name, role, description, capabilities |
 | `_node.capabilities` | machine-readable capabilities |
-| `_node.ask` | delegate to the node ask handler |
+| `_node.ask` | delegate directly to the node ask handler |
+| `synapse.ask` | swarm-facing ask endpoint used by `sn ask` |
 
 Wire format:
 
@@ -649,8 +694,20 @@ Response:
 Useful low-level exports:
 
 ```python
-from synapse_p2p import Broadcast, BroadcastReply, Capability, Client, Node, Peer
-from synapse_p2p import RPCError, RPCRequest, RPCResponse
+from synapse_p2p import (
+    AdvertisedArtifact,
+    Broadcast,
+    BroadcastReply,
+    Capability,
+    Client,
+    ConversationEvent,
+    Node,
+    Peer,
+    RPCError,
+    RPCRequest,
+    RPCResponse,
+    ServedArtifact,
+)
 ```
 
 Enable logs when debugging:
@@ -671,7 +728,7 @@ Those belong above Synapse.
 
 Synapse is the substrate:
 
-> nodes + discovery + capabilities + heartbeats + broadcasts + schedules + a tiny protocol
+> nodes + discovery + capabilities + conversations + artifacts + heartbeats + schedules + a tiny protocol
 
 ---
 

@@ -11,7 +11,7 @@ from rich.panel import Panel
 from zeroconf import ServiceStateChange
 from zeroconf.asyncio import AsyncServiceBrowser, AsyncZeroconf
 
-from synapse_p2p import Broadcast, BroadcastReply, Node, Peer
+from synapse_p2p import Broadcast, BroadcastReply, ConversationEvent, Node, Peer
 from synapse_p2p.mdns import SERVICE_TYPE
 from synapse_p2p.node import Seed
 
@@ -27,6 +27,16 @@ CHATTER_LIMIT = 80
 
 def _parse_seed(seed: list[str] | None) -> list[Seed]:
     return list(seed or [])
+
+
+def _seed_host(seed: Seed) -> str:
+    if isinstance(seed, tuple):
+        return seed[0]
+    return seed.rsplit(":", 1)[0]
+
+
+def _loopback_only(seeds: list[Seed], mdns: bool) -> bool:
+    return bool(seeds) and all(_seed_host(seed).startswith("127.") for seed in seeds) and not mdns
 
 
 def _online_dot(
@@ -61,12 +71,23 @@ def _format_result(result: Any) -> str:
     return str(result)
 
 
+def _parse_key_value(items: list[str] | None) -> dict[str, str]:
+    parsed: dict[str, str] = {}
+    for item in items or []:
+        if "=" not in item:
+            raise typer.BadParameter(f"expected key=value, got {item!r}")
+        key, value = item.split("=", 1)
+        parsed[key] = value
+    return parsed
+
+
 def _event(kind: str, text: str) -> str:
     styles = {
         "joined": "bold white on dark_green",
         "heartbeat": "grey50 on grey15",
         "offline": "bold white on dark_red",
         "message": "bold white on purple4",
+        "ack": "bold black on bright_yellow",
         "reply": "bold black on bright_cyan",
     }
     labels = {
@@ -74,6 +95,7 @@ def _event(kind: str, text: str) -> str:
         "heartbeat": "BEAT",
         "offline": "OFFLINE",
         "message": "ASK",
+        "ack": "ACK",
         "reply": "REPLY",
     }
     style = styles.get(kind, "bold white on grey23")
@@ -389,7 +411,7 @@ async def _broadcast(
     discover: float,
     timeout: float | None,
 ) -> None:
-    loopback_only = bool(seeds) and all(seed[0].startswith("127.") for seed in seeds) and not mdns
+    loopback_only = _loopback_only(seeds, mdns)
     node = Node(
         name=name,
         role="speaker",
@@ -467,6 +489,138 @@ def broadcast_command(
     stream_timeout = None if forever else timeout
     asyncio.run(
         _broadcast(swarm, team, message, name, _parse_seed(seed), mdns, discover, stream_timeout)
+    )
+
+
+async def _ask(
+    swarm: str,
+    team: str,
+    task: str,
+    name: str,
+    seeds: list[Seed],
+    mdns: bool,
+    discover: float,
+    timeout: float | None,
+    context: dict[str, str] | None = None,
+) -> None:
+    loopback_only = _loopback_only(seeds, mdns)
+    node = Node(
+        name=name,
+        role="asker",
+        swarm=swarm,
+        team=team,
+        capabilities=["ask"],
+        seeds=seeds,
+        mdns=mdns,
+        bind="127.0.0.1" if loopback_only else "0.0.0.0",
+        advertise="127.0.0.1" if loopback_only else "auto",
+    )
+    replies: asyncio.Queue[BroadcastReply] = asyncio.Queue()
+    acks: asyncio.Queue[ConversationEvent] = asyncio.Queue()
+    seen_acks: set[str] = set()
+
+    @node.on("conversation.ack")
+    async def on_ack(event: ConversationEvent) -> None:
+        await acks.put(event)
+
+    @node.on("broadcast.reply")
+    async def on_reply(reply: BroadcastReply) -> None:
+        await replies.put(reply)
+
+    await node.start()
+    await node.join()
+    await asyncio.sleep(discover)
+
+    broadcast = await node.broadcast("synapse.ask", task, context=context or {})
+    typer.echo(f"ask: {broadcast.nonce}")
+    typer.echo("waiting for ACKs and replies... press Ctrl+C to stop")
+
+    try:
+        while True:
+            reply_task = asyncio.create_task(replies.get())
+            ack_task = asyncio.create_task(acks.get())
+            pending = {reply_task, ack_task}
+            try:
+                done, pending = await asyncio.wait(
+                    pending,
+                    timeout=timeout,
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+            finally:
+                for task_item in pending:
+                    task_item.cancel()
+
+            if not done:
+                if not node.replies(broadcast):
+                    typer.echo("no replies")
+                return
+
+            for task_item in done:
+                item = task_item.result()
+                if isinstance(item, BroadcastReply):
+                    if item.nonce == broadcast.nonce:
+                        typer.echo(
+                            f"- {_peer_name(item.peer)}: {_format_result(item.result)}"
+                        )
+                elif item.conversation_id == broadcast.nonce and item.peer.id not in seen_acks:
+                    seen_acks.add(item.peer.id)
+                    typer.echo(f"✓ {_peer_name(item.peer)} acked")
+
+            if timeout is not None and node.replies(broadcast):
+                # After the first reply, keep the command snappy unless --forever is used.
+                timeout = 0.25
+    finally:
+        await node.stop()
+
+
+@app.command("ask")
+def ask_command(
+    swarm: Annotated[str, typer.Argument(help="Swarm name")],
+    task: Annotated[str, typer.Argument(help="Task/question to ask the swarm")],
+    team: Annotated[
+        str,
+        typer.Option("--team", "-t", help="Optional subgroup inside the swarm"),
+    ] = "default",
+    name: Annotated[
+        str,
+        typer.Option("--name", "-n", help="Name for this CLI node"),
+    ] = "asker",
+    seed: Annotated[
+        list[str] | None,
+        typer.Option("--seed", "-s", help="Seed node as host:port. Repeatable."),
+    ] = None,
+    mdns: Annotated[bool, typer.Option("--mdns/--no-mdns", help="Use local mDNS discovery")] = True,
+    discover: Annotated[
+        float,
+        typer.Option("--discover", help="Seconds to discover peers before asking"),
+    ] = 0.5,
+    timeout: Annotated[
+        float | None,
+        typer.Option("--timeout", help="Stop after this many seconds without an event"),
+    ] = 30,
+    forever: Annotated[
+        bool,
+        typer.Option("--forever", help="Keep streaming replies until Ctrl+C"),
+    ] = False,
+    context: Annotated[
+        list[str] | None,
+        typer.Option("--context", "-c", help="Context key=value. Repeatable."),
+    ] = None,
+) -> None:
+    """Ask capable swarm nodes to perform work and stream ACKs/replies."""
+    stream_timeout = None if forever else timeout
+    asyncio.run(
+        _ask(
+            swarm,
+            team,
+            task,
+            name,
+            _parse_seed(seed),
+            mdns,
+            discover,
+            stream_timeout,
+            _parse_key_value(context),
+        )
     )
 
 

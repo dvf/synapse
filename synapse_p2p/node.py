@@ -661,6 +661,21 @@ class Node:
                 raise RuntimeError("node has no ask handler")
             return await self._ask_handler(task, context or {})
 
+        @self.endpoint("synapse.ask", publish=False, description="Ask this node to perform work")
+        async def swarm_ask(
+            task: str,
+            context: dict[str, Any] | None = None,
+            broadcast: Broadcast | None = None,
+        ) -> Any:
+            if self._ask_handler is None:
+                raise RuntimeError("node has no ask handler")
+            if broadcast is not None:
+                await self.ack(broadcast)
+            result = await self._ask_handler(task, context or {})
+            if broadcast is not None:
+                await self.reply(broadcast, result)
+            return result
+
     def _register_system_endpoints(self) -> None:
         @self.endpoint("_synapse.ping", publish=False)
         async def ping() -> str:
