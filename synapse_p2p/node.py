@@ -1,6 +1,9 @@
 import asyncio
+import base64
 import contextlib
+import hashlib
 import inspect
+import json
 import time
 import uuid
 from collections.abc import Awaitable, Callable, Coroutine
@@ -25,6 +28,7 @@ from synapse_p2p.types import (
     Connection,
     NodeKind,
     Peer,
+    ServedArtifact,
     build_connection_from_peer_name,
 )
 from synapse_p2p.utils import random_hash
@@ -98,6 +102,7 @@ class Node:
         self.peer_timeout = peer_timeout
         self.peers: dict[str, Peer] = {}
         self.broadcast_replies: dict[str, list[BroadcastReply]] = {}
+        self.artifact_directory: dict[str, ServedArtifact] = {}
         self.lifecycle_handlers: dict[str, list[Callable[[Any], Coroutine[Any, Any, None]]]] = {}
         self.endpoint_directory: dict[str, Callable] = {}
         self.endpoint_metadata: dict[str, EndpointMetadata] = {}
@@ -134,6 +139,70 @@ class Node:
     def ask(self, wrapped: AskHandler) -> AskHandler:
         self._ask_handler = wrapped
         return wrapped
+
+    def artifact(
+        self,
+        name: str,
+        content: Any,
+        *,
+        mime_type: str = "application/json",
+        kind: str = "metadata",
+        description: str = "",
+        encoding: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> ServedArtifact:
+        """Advertise a small inline artifact that peers can fetch over RPC.
+
+        Synapse does not interpret the MIME type. It advertises and serves the
+        document so higher-level agents can decide whether they understand it.
+        """
+        artifact = self._build_artifact(
+            name=name,
+            content=content,
+            mime_type=mime_type,
+            kind=kind,
+            description=description,
+            encoding=encoding,
+            metadata=metadata or {},
+        )
+        self.artifact_directory[name] = artifact
+        return artifact
+
+    def _build_artifact(
+        self,
+        *,
+        name: str,
+        content: Any,
+        mime_type: str,
+        kind: str,
+        description: str,
+        encoding: str | None,
+        metadata: dict[str, Any],
+    ) -> ServedArtifact:
+        if isinstance(content, bytes):
+            raw = content
+            served_content: Any = base64.b64encode(content).decode("ascii")
+            artifact_encoding = encoding or "base64"
+        elif isinstance(content, str):
+            raw = content.encode()
+            served_content = content
+            artifact_encoding = encoding or "text"
+        else:
+            raw = json.dumps(content, sort_keys=True, separators=(",", ":")).encode()
+            served_content = content
+            artifact_encoding = encoding or "json"
+
+        return ServedArtifact(
+            name=name,
+            mime_type=mime_type,
+            content=served_content,
+            kind=kind,
+            description=description,
+            encoding=artifact_encoding,
+            size=len(raw),
+            sha256=hashlib.sha256(raw).hexdigest(),
+            metadata=dict(metadata),
+        )
 
     def run(self) -> None:
         """Run the node."""
@@ -494,6 +563,20 @@ class Node:
         @self.endpoint("_synapse.peers", publish=False)
         async def peers() -> list[dict]:
             return [peer.to_dict() for peer in self.peers.values()]
+
+        @self.endpoint("_synapse.artifacts", publish=False)
+        async def artifacts() -> list[dict[str, Any]]:
+            return [
+                artifact.descriptor().to_dict()
+                for artifact in self.artifact_directory.values()
+            ]
+
+        @self.endpoint("_synapse.artifact.get", publish=False)
+        async def artifact_get(name: str) -> dict[str, Any]:
+            artifact = self.artifact_directory.get(name)
+            if artifact is None:
+                raise InvalidMessageError(f"unknown artifact: {name}")
+            return artifact.to_dict()
 
         @self.endpoint("_synapse.join", publish=False)
         async def join(peer: dict) -> dict:

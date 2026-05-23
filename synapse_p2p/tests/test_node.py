@@ -34,6 +34,24 @@ def test_background_decorator_registers_task(node):
     assert task.period == 5
 
 
+def test_artifact_registers_descriptor(node):
+    artifact = node.artifact(
+        "agent-card",
+        {"name": "reviewer", "capabilities": ["code-review"]},
+        mime_type="application/vnd.synapse.agent-card+json",
+        description="Self-description for this node",
+    )
+
+    descriptor = artifact.descriptor().to_dict()
+
+    assert artifact.name == "agent-card"
+    assert artifact.encoding == "json"
+    assert artifact.content == {"name": "reviewer", "capabilities": ["code-review"]}
+    assert artifact.size is not None
+    assert artifact.sha256 is not None
+    assert "content" not in descriptor
+
+
 async def _send_message(node: Node, message) -> RPCResponse:
     tcp = await asyncio.start_server(node.handle_data, node.bind, node.port)
     host, port = tcp.sockets[0].getsockname()[:2]
@@ -196,6 +214,50 @@ async def test_client_timeout():
     async with tcp:
         with pytest.raises(TimeoutError):
             await Client(host, port, timeout=0.01).call("slow")
+
+
+@pytest.mark.asyncio
+async def test_synapse_artifacts_endpoints():
+    node = Node(bind="127.0.0.1")
+    node.artifact(
+        "agent-card",
+        {"name": "reviewer", "capabilities": ["code-review"]},
+        mime_type="application/vnd.synapse.agent-card+json",
+    )
+
+    artifacts = await _send_rpc(node, RPCRequest(id="list", endpoint="_synapse.artifacts"))
+    assert artifacts.ok is True
+    assert artifacts.result == [
+        {
+            "name": "agent-card",
+            "mime_type": "application/vnd.synapse.agent-card+json",
+            "kind": "metadata",
+            "description": "",
+            "encoding": "json",
+            "size": 50,
+            "sha256": "dff355dc1bfeebbd133f25b00a8c169d25c9afef8d3f45076f0140668bed3920",
+            "metadata": {},
+        }
+    ]
+
+    fetched = await _send_rpc(
+        node,
+        RPCRequest(id="get", endpoint="_synapse.artifact.get", args=["agent-card"]),
+    )
+    assert fetched.ok is True
+    assert fetched.result["content"] == {"name": "reviewer", "capabilities": ["code-review"]}
+
+
+@pytest.mark.asyncio
+async def test_synapse_artifact_get_unknown_name_returns_bad_request():
+    node = Node(bind="127.0.0.1")
+    response = await _send_rpc(
+        node,
+        RPCRequest(id="get", endpoint="_synapse.artifact.get", args=["missing"]),
+    )
+    assert response.ok is False
+    assert response.error is not None
+    assert response.error.code == "bad_request"
 
 
 @pytest.mark.asyncio
