@@ -4,15 +4,19 @@
 
 <br>
 
-**Build agent swarms: teams of nodes that discover each other, share abilities, join conversations, expose custom endpoints, and wake up on schedules like sunrise... across any network**
-
-Synapse is a lightweight peer-to-peer substrate for agent infrastructure. Give each process a `Node` and Synapse gives that node a name, peers, capabilities, RPC endpoints, shared conversations, agent cards, heartbeats, and periodic tasks.
+**Build agent swarms that discover each other, share abilities, join conversations, expose custom endpoints, and wake up on schedules like sunrise... across any network.**
 
 [![PyPI](https://img.shields.io/pypi/v/synapse-p2p.svg)](https://pypi.python.org/pypi/synapse-p2p)
 [![Tests](https://github.com/dvf/synapse/actions/workflows/test.yml/badge.svg)](https://github.com/dvf/synapse/actions/workflows/test.yml)
 [![License](https://img.shields.io/github/license/dvf/synapse)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 ![PyPI - Downloads](https://img.shields.io/pypi/dw/synapse-p2p)
+
+<br>
+<hr>
+Synapse is a lightweight peer-to-peer substrate for agent infrastructure. Give each process a `Node` and Synapse gives that node a name, peers, capabilities, RPC endpoints, shared conversations, agent cards, heartbeats, and periodic tasks.
+
+
 
 ```python
 from synapse_p2p import Node, solar
