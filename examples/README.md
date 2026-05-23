@@ -56,8 +56,8 @@ sn list-swarms
 ## 1. Basic node RPC
 
 ```bash
-python example_node.py
-python example_client.py
+python basic_rpc/node.py
+python basic_rpc/client.py
 ```
 
 A node exposes `sum`. A client calls it.

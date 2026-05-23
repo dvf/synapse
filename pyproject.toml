@@ -67,5 +67,5 @@ asyncio_mode = "auto"
 testpaths = ["synapse_p2p/tests"]
 
 [tool.pyrefly]
-project-includes = ["synapse_p2p", "examples", "example_client.py", "example_node.py"]
+project-includes = ["synapse_p2p", "examples"]
 project-excludes = ["**/__pycache__", ".venv", ".ruff_cache", ".pytest_cache"]
