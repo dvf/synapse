@@ -56,6 +56,7 @@ It also ships with a CLI tool to monitor your swarms:
 - [Advertised artifacts and agent cards](#advertised-artifacts-and-agent-cards)
 - [Ask](#ask)
 - [Broadcast conversations](#broadcast)
+- [Periodic tasks](#periodic-tasks)
 - [Heartbeats and liveness](#heartbeats)
 - [CLI](#cli)
   - [`sn watch`](#sn-watch)
@@ -384,6 +385,60 @@ Why this matters:
 - any agent can participate by replying with that nonce
 - replies group without a central coordinator
 - UUIDv7 nonces keep conversation ids roughly ordered by creation time
+
+---
+
+## Periodic tasks
+
+Use `@node.periodic(...)` to run an async function on an interval, cron expression, or solar event while the node is running. Periodic tasks start with `await node.start()` or `node.run()`, and `await node.stop()` cancels scheduled and in-flight runs.
+
+```python
+from synapse_p2p import Node, cron, every, solar
+
+node = Node(name="worker")
+
+
+@node.periodic(every(seconds=30))
+async def refresh_cache() -> None:
+    print("refreshing cache")
+
+
+@node.periodic(cron("0 9 * * mon-fri", tz="Europe/London"))
+async def weekday_digest() -> None:
+    print("weekday digest")
+
+
+@node.periodic(solar("civil_twilight_begin", latitude=51.5, longitude=-0.1, tz="Europe/London"))
+async def dawn_check() -> None:
+    print("civil twilight has begun")
+
+
+node.run()
+```
+
+For simple intervals, a number is shorthand for seconds:
+
+```python
+@node.periodic(30)  # equivalent to every(seconds=30)
+async def refresh_cache() -> None:
+    ...
+```
+
+Built-in schedules:
+
+- `every(seconds=..., minutes=..., hours=..., days=...)`
+- `cron("*/15 * * * *", tz="UTC")`
+- `solar("sunrise", latitude=..., longitude=..., tz="UTC")`
+
+Solar events include `sunrise`, `sunset`, `solar_noon`, `civil_twilight_begin`, `civil_twilight_end`, `nautical_twilight_begin`, `nautical_twilight_end`, `astronomical_twilight_begin`, and `astronomical_twilight_end`.
+
+Notes:
+
+- The decorated function must be `async def` and take no arguments.
+- The first run starts immediately when the node starts; later runs follow the schedule.
+- Long-running tasks can overlap if a previous run is still active when the next scheduled time arrives.
+- Exceptions are logged and do not stop future runs.
+- Tasks added after `await node.start()` are scheduled immediately.
 
 ---
 

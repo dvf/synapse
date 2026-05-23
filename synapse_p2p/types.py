@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import asdict, dataclass, field
+from datetime import datetime
 from enum import StrEnum
 from hashlib import sha256
 from typing import Any
@@ -27,10 +28,15 @@ class Connection:
 
 
 @dataclass(slots=True)
-class BackgroundTask:
+class PeriodicTask:
     name: str
     callable: Callable[..., Awaitable[Any]]
-    period: float
+    schedule: Any
+    next_run: datetime | None = None
+
+    @property
+    def period(self) -> float | None:
+        return getattr(self.schedule, "seconds", None)
 
 
 @dataclass(slots=True)

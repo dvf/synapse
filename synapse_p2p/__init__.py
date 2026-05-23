@@ -22,6 +22,7 @@ __logo__ = f"""
 from synapse_p2p.client import Client
 from synapse_p2p.messages import RemoteProcedureCall, RPCError, RPCRequest, RPCResponse
 from synapse_p2p.node import Capability, Node
+from synapse_p2p.schedules import CronSchedule, IntervalSchedule, SolarSchedule, cron, every, solar
 from synapse_p2p.serializers import BaseRPCSerializer, MessagePackRPCSerializer
 from synapse_p2p.types import (
     AdvertisedArtifact,
@@ -43,6 +44,7 @@ __all__ = [
     "BroadcastReply",
     "Client",
     "Connection",
+    "CronSchedule",
     "MessagePackRPCSerializer",
     "Node",
     "NodeKind",
@@ -52,6 +54,11 @@ __all__ = [
     "RPCResponse",
     "RemoteProcedureCall",
     "ServedArtifact",
+    "IntervalSchedule",
+    "SolarSchedule",
+    "cron",
+    "every",
+    "solar",
     "__logo__",
     "__version__",
 ]

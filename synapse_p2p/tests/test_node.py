@@ -25,12 +25,12 @@ def test_endpoint_decorator_uses_function_name_by_default(node):
     assert "ping" in node.endpoint_directory
 
 
-def test_background_decorator_registers_task(node):
-    @node.background(5)
+def test_periodic_decorator_registers_task(node):
+    @node.periodic(5)
     async def heartbeat():
         pass
 
-    task = next(task for task in node.background_executor.tasks if task.name == "heartbeat")
+    task = next(task for task in node.periodic_executor.tasks if task.name == "heartbeat")
     assert task.period == 5
 
 
@@ -245,6 +245,7 @@ async def test_synapse_artifacts_endpoints():
         RPCRequest(id="get", endpoint="_synapse.artifact.get", args=["agent-card"]),
     )
     assert fetched.ok is True
+    assert isinstance(fetched.result, dict)
     assert fetched.result["content"] == {"name": "reviewer", "capabilities": ["code-review"]}
 
 
