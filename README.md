@@ -50,28 +50,6 @@ What makes it fun:
 
 ---
 
-## 🧭  Table of contents
-
-- [Install](#install)
-- [The mental model](#the-mental-model)
-- [Why it feels different](#why-it-feels-different)
-- [What can you build?](#what-can-you-build)
-- [Synapse vs A2A](#synapse-vs-a2a)
-- [Quickstart: RPC](#quickstart-rpc)
-- [Swarms and discovery](#swarms-and-discovery)
-- [Capabilities](#capabilities)
-- [Ask: delegate work](#ask-delegate-work)
-- [Broadcast: shared conversations](#broadcast-shared-conversations)
-- [Periodic tasks](#periodic-tasks)
-- [Artifacts and agent cards](#artifacts-and-agent-cards)
-- [Heartbeats](#heartbeats)
-- [CLI](#cli)
-- [Examples](#examples)
-- [Protocol details](#protocol-details)
-- [What Synapse is not](#what-synapse-is-not)
-
----
-
 ## 📦  Install
 
 Using `uv` or `pip`:
