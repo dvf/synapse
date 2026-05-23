@@ -13,21 +13,22 @@ from typing import Any
 from loguru import logger
 
 from synapse_p2p import __logo__
-from synapse_p2p.background import BackgroundTaskHandler
 from synapse_p2p.client import Client
 from synapse_p2p.exceptions import InvalidMessageError
 from synapse_p2p.framing import read_frame, write_frame
 from synapse_p2p.mdns import MdnsDiscovery
 from synapse_p2p.messages import RPCError, RPCRequest, RPCResponse
 from synapse_p2p.network import advertised_address
+from synapse_p2p.periodic import PeriodicTaskHandler
+from synapse_p2p.schedules import Schedule, every
 from synapse_p2p.serializers import BaseRPCSerializer, MessagePackRPCSerializer
 from synapse_p2p.types import (
-    BackgroundTask,
     Broadcast,
     BroadcastReply,
     Connection,
     NodeKind,
     Peer,
+    PeriodicTask,
     ServedArtifact,
     build_connection_from_peer_name,
 )
@@ -107,7 +108,7 @@ class Node:
         self.endpoint_directory: dict[str, Callable] = {}
         self.endpoint_metadata: dict[str, EndpointMetadata] = {}
         self.max_upload_size = max_upload_size
-        self.background_executor = BackgroundTaskHandler()
+        self.periodic_executor = PeriodicTaskHandler()
         self.serializer_class = serializer_class
         self._listener: asyncio.Server | None = None
         self._register_system_endpoints()
@@ -309,9 +310,9 @@ class Node:
         for endpoint in self.endpoint_directory:
             print(f"- {endpoint}")
 
-        if self.background_executor.tasks:
-            print("\nBackground Tasks:")
-            for task in self.background_executor.tasks:
+        if self.periodic_executor.tasks:
+            print("\nPeriodic Tasks:")
+            for task in self.periodic_executor.tasks:
                 print(f"- {task.name} ({task.period}s)")
         print()
 
@@ -325,14 +326,14 @@ class Node:
         if socket is not None:
             _bound_address, self.port = socket.getsockname()[:2]
             self.address = advertised_address(self.bind, self.advertise)
-        self.background_executor.start()
+        self.periodic_executor.start()
         if self.mdns is not None:
             await self.mdns.start()
         return self._listener
 
     async def stop(self) -> None:
-        """Stop accepting connections and cancel background tasks."""
-        await self.background_executor.stop()
+        """Stop accepting connections and cancel periodic tasks."""
+        await self.periodic_executor.stop()
         if self.mdns is not None:
             await self.mdns.stop()
         if self._listener is None:
@@ -440,18 +441,18 @@ class Node:
     def _register_lifecycle_tasks(self) -> None:
         if self.heartbeat_interval is None:
             return
-        self.background_executor.add_task(
-            BackgroundTask(
+        self.periodic_executor.add_task(
+            PeriodicTask(
                 name="_synapse.heartbeat",
                 callable=self._send_heartbeats,
-                period=self.heartbeat_interval,
+                schedule=every(seconds=self.heartbeat_interval),
             )
         )
-        self.background_executor.add_task(
-            BackgroundTask(
+        self.periodic_executor.add_task(
+            PeriodicTask(
                 name="_synapse.reap_stale_peers",
                 callable=self._reap_stale_peers,
-                period=self.heartbeat_interval,
+                schedule=every(seconds=self.heartbeat_interval),
             )
         )
 
@@ -647,12 +648,15 @@ class Node:
 
         return decorator
 
-    def background(self, period: float) -> Callable:
-        """Decorator to schedule a coroutine as a periodic background task."""
+    def periodic(self, schedule: float | Schedule) -> Callable:
+        """Decorator to schedule a coroutine as a periodic task."""
+        task_schedule = every(seconds=schedule) if isinstance(schedule, int | float) else schedule
 
         def decorator(wrapped: Callable) -> Callable:
-            self.background_executor.add_task(
-                BackgroundTask(name=wrapped.__name__, callable=wrapped, period=period)
+            if not inspect.iscoroutinefunction(wrapped):
+                raise TypeError("periodic task must be an async function")
+            self.periodic_executor.add_task(
+                PeriodicTask(name=wrapped.__name__, callable=wrapped, schedule=task_schedule)
             )
             return wrapped
 

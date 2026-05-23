@@ -8,6 +8,8 @@ keywords = ["agents", "agent-to-agent", "multi-agent", "rpc", "p2p", "msgpack", 
 authors = [{ name = "Daniel van Flymen", email = "vanflymen@gmail.com" }]
 requires-python = ">=3.10"
 dependencies = [
+    "astral>=3.2",
+    "croniter>=6.0",
     "loguru",
     "msgpack",
     "rich>=13",
