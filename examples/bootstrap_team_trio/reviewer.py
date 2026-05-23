@@ -13,6 +13,17 @@ reviewer = Node(
     peer_timeout=20,
 )
 
+reviewer.artifact(
+    "agent-card",
+    {
+        "name": reviewer.name,
+        "role": reviewer.role,
+        "capabilities": ["code-review", "risk-analysis"],
+        "description": "Reviews work and calls out risks.",
+    },
+    mime_type="application/vnd.synapse.agent-card+json",
+)
+
 
 @reviewer.ask
 async def handle_task(task: str, context: dict):

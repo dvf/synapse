@@ -1,7 +1,7 @@
 import asyncio
 
 from examples.pydantic_ai_team.common import SWARM, make_agent, run_agent
-from synapse_p2p import Broadcast, Node
+from synapse_p2p import Node
 
 brain, test_model = make_agent(
     "You are a concise senior code reviewer. Reply with risks and suggested tests.",
@@ -16,12 +16,22 @@ node = Node(
     mdns=True,
 )
 
+node.artifact(
+    "agent-card",
+    {
+        "name": node.name,
+        "role": node.role,
+        "capabilities": ["code-review", "risk-analysis"],
+        "description": "Reviews code and points out risks and missing tests.",
+    },
+    mime_type="application/vnd.synapse.agent-card+json",
+)
 
-@node.endpoint("team.question")
-async def answer(question: str, broadcast: Broadcast) -> dict[str, str]:
-    output = await run_agent(brain, test_model, question)
-    await node.reply(broadcast, {"role": node.role, "answer": output})
-    return {"accepted": "true"}
+
+@node.ask
+async def answer(task: str, context: dict) -> dict[str, str]:
+    output = await run_agent(brain, test_model, task)
+    return {"role": node.role, "answer": output, "context": str(context)}
 
 
 async def main() -> None:

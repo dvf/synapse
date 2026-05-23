@@ -13,6 +13,17 @@ planner = Node(
     peer_timeout=20,
 )
 
+planner.artifact(
+    "agent-card",
+    {
+        "name": planner.name,
+        "role": planner.role,
+        "capabilities": ["planning", "delegation"],
+        "description": "Creates simple plans and can delegate to discovered peers.",
+    },
+    mime_type="application/vnd.synapse.agent-card+json",
+)
+
 
 @planner.ask
 async def handle_task(task: str, context: dict):

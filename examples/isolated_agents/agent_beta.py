@@ -12,6 +12,17 @@ node = Node(
     mdns=True,
 )
 
+node.artifact(
+    "agent-card",
+    {
+        "name": node.name,
+        "role": node.role,
+        "capabilities": ["answer", "echo"],
+        "description": "Handles direct ask requests from alpha.",
+    },
+    mime_type="application/vnd.synapse.agent-card+json",
+)
+
 
 @node.ask
 async def handle_task(task: str, context: dict):
