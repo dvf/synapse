@@ -50,7 +50,7 @@ What makes it fun:
 
 ---
 
-## 🧭 Table of contents
+## 🧭  Table of contents
 
 - [Install](#install)
 - [The mental model](#the-mental-model)
@@ -72,7 +72,7 @@ What makes it fun:
 
 ---
 
-## 📦 Install
+## 📦  Install
 
 Using `uv` or `pip`:
 ```bash
@@ -90,7 +90,7 @@ sn --help
 
 ---
 
-## 🧠 The mental model
+## 🧠  The mental model
 
 Synapse uses these words carefully:
 
@@ -120,7 +120,7 @@ Synapse gives nodes:
 
 ---
 
-## ✨ Why it feels different
+## ✨  Why it feels different
 
 Most agent frameworks start with one agent loop. Synapse starts with the swarm.
 
@@ -144,7 +144,7 @@ async def wake_up() -> None:
 
 ---
 
-## 🛠️ What can you build?
+## 🛠️  What can you build?
 
 - **Research swarms** — a planner node broadcasts a question; specialist nodes wade into the same conversation.
 - **Code-review teams** — nodes advertise `security`, `tests`, or `docs`; a coordinator delegates to the right peer.
@@ -158,7 +158,7 @@ Synapse handles the substrate. You bring the behavior.
 
 ---
 
-## ⚖️ Synapse vs A2A
+## ⚖️  Synapse vs A2A
 
 A2A is a full agent interoperability protocol. Synapse is much smaller: a peer-to-peer substrate for nodes that need to find each other and talk.
 
@@ -188,7 +188,7 @@ The core idea is simple: start nodes, advertise abilities, call endpoints, broad
 
 ---
 
-## ⚡ Quickstart: RPC
+## ⚡  Quickstart: RPC
 
 Create a node with an endpoint:
 
@@ -224,7 +224,7 @@ asyncio.run(main())
 
 ---
 
-## 🐝 Swarms and discovery
+## 🐝  Swarms and discovery
 
 A **swarm** is a group of nodes with the same `swarm` name. Nodes only join and heartbeat peers in their own swarm.
 
@@ -238,7 +238,7 @@ node = Node(
 
 Use a domain-style swarm name to avoid collisions.
 
-### 📡 Local discovery with mDNS
+### 📡  Local discovery with mDNS
 
 Use mDNS for zero-config discovery on a LAN:
 
@@ -256,7 +256,7 @@ await node.join()
 
 Any node on the same LAN with the same `swarm` and `mdns=True` can discover it.
 
-### 🌍 Remote discovery with seeds
+### 🌍  Remote discovery with seeds
 
 Use seeds when nodes are not on the same LAN:
 
@@ -275,7 +275,7 @@ A seed is just another Synapse node. It is a first contact point, not a coordina
 
 ---
 
-## 🎯 Capabilities
+## 🎯  Capabilities
 
 Capabilities tell peers what a node can do.
 
@@ -311,7 +311,7 @@ methods = await client.call("_synapse.methods")
 
 ---
 
-## 🤝 Ask: delegate work
+## 🤝  Ask: delegate work
 
 Use `@node.ask` for the default task handler on a node. Synapse provides the transport; your agent code decides whether and how to answer.
 
@@ -364,7 +364,7 @@ sn ask foo.electron.network "Review this diff" --context url=https://github.com/
 
 ---
 
-## 💬 Broadcast: shared conversations
+## 💬  Broadcast: shared conversations
 
 Use broadcast when you do not know which node should answer.
 
@@ -437,7 +437,7 @@ Why this is useful:
 
 ---
 
-## 🌅 Periodic tasks
+## 🌅  Periodic tasks
 
 Nodes can wake up on a schedule: every few seconds, every weekday morning, or when the sun rises.
 
@@ -491,7 +491,7 @@ Notes:
 
 ---
 
-## 🪪 Artifacts and agent cards
+## 🪪  Artifacts and agent cards
 
 Nodes can advertise small metadata documents that peers can fetch over RPC.
 
@@ -525,7 +525,7 @@ Synapse does not interpret artifacts. It serves bytes/JSON plus a MIME type. You
 
 ---
 
-## 💓 Heartbeats
+## 💓  Heartbeats
 
 Nodes heartbeat known peers and mark stale peers offline.
 
@@ -549,7 +549,7 @@ Offline means “not seen within `peer_timeout`.”
 
 ---
 
-## 🖥️ CLI
+## 🖥️  CLI
 
 The CLI is `sn`.
 
@@ -557,7 +557,7 @@ The CLI is `sn`.
 sn --help
 ```
 
-### 👀 Watch a swarm
+### 👀  Watch a swarm
 
 ```bash
 sn watch foo.electron.network
@@ -576,7 +576,7 @@ sn watch foo.electron.network --team backend
 sn watch foo.electron.network --no-capabilities
 ```
 
-### 🙋 Ask from the terminal
+### 🙋  Ask from the terminal
 
 `sn ask` broadcasts to the built-in `synapse.ask` endpoint. Nodes with a `@node.ask` handler can opt in with ACK and reply with their result.
 
@@ -595,7 +595,7 @@ waiting for ACKs and replies... press Ctrl+C to stop
 - reviewer: LGTM after fixing tests
 ```
 
-### 📣 Broadcast from the terminal
+### 📣  Broadcast from the terminal
 
 ```bash
 sn broadcast foo.electron.network "Who can review this diff?"
@@ -603,7 +603,7 @@ sn broadcast foo.electron.network "Who can help?" --forever
 sn broadcast foo.electron.network "Ship status?" --discover 2 --timeout 10
 ```
 
-### 📋 List local swarms
+### 📋  List local swarms
 
 ```bash
 sn list-swarms
@@ -612,7 +612,7 @@ sn list-swarms --seconds 5
 
 ---
 
-## 📚 Examples
+## 📚  Examples
 
 See [`examples/`](./examples).
 
@@ -641,7 +641,7 @@ The Pydantic AI example uses `TestModel` by default, so it runs without API keys
 
 ---
 
-## 🔌 Protocol details
+## 🔌  Protocol details
 
 Built-in endpoints:
 
@@ -720,7 +720,7 @@ logger.enable("synapse_p2p")
 
 ---
 
-## 🚫 What Synapse is not
+## 🚫  What Synapse is not
 
 Synapse does **not** implement planning, memory, consensus, auth policy, NAT traversal, hosted registries, or UX.
 
@@ -732,6 +732,6 @@ Synapse is the substrate:
 
 ---
 
-## 🔎 Keywords
+## 🔎  Keywords
 
 swarm substrate, agent substrate, node discovery, local mDNS discovery, agent-to-agent networking, LLM agent RPC, multi-agent systems, capability discovery, language-agnostic RPC, Python RPC, asyncio RPC, peer-to-peer Python, P2P networking, MsgPack RPC, TCP RPC, distributed agents.
