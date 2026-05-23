@@ -23,11 +23,20 @@ from synapse_p2p.client import Client
 from synapse_p2p.messages import RemoteProcedureCall, RPCError, RPCRequest, RPCResponse
 from synapse_p2p.node import Capability, Node
 from synapse_p2p.serializers import BaseRPCSerializer, MessagePackRPCSerializer
-from synapse_p2p.types import Broadcast, BroadcastReply, Connection, NodeKind, Peer
+from synapse_p2p.types import (
+    AdvertisedArtifact,
+    Broadcast,
+    BroadcastReply,
+    Connection,
+    NodeKind,
+    Peer,
+    ServedArtifact,
+)
 
 logger.disable("synapse_p2p")
 
 __all__ = [
+    "AdvertisedArtifact",
     "Capability",
     "BaseRPCSerializer",
     "Broadcast",
@@ -42,6 +51,7 @@ __all__ = [
     "RPCRequest",
     "RPCResponse",
     "RemoteProcedureCall",
+    "ServedArtifact",
     "__logo__",
     "__version__",
 ]

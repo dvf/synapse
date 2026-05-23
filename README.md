@@ -53,6 +53,7 @@ It also ships with a CLI tool to monitor your swarms:
   - [Local discovery: mDNS](#local-discovery-mdns)
   - [Remote discovery: seeds](#remote-discovery-seeds)
 - [Capabilities](#capabilities)
+- [Advertised artifacts and agent cards](#advertised-artifacts-and-agent-cards)
 - [Ask](#ask)
 - [Broadcast conversations](#broadcast)
 - [Heartbeats and liveness](#heartbeats)
@@ -73,6 +74,12 @@ It also ships with a CLI tool to monitor your swarms:
 ## Install
 
 ```bash
+uv add synapse-p2p
+```
+
+or 
+
+```
 pip install synapse-p2p
 ```
 
@@ -248,6 +255,62 @@ info = await client.call("_node.info")
 capabilities = await client.call("_node.capabilities")
 methods = await client.call("_synapse.methods")
 ```
+
+---
+
+## Advertised artifacts and agent cards
+
+Nodes can advertise small metadata documents or resources that peers can fetch over Synapse RPC.
+Synapse does not interpret the document; it only serves the bytes/JSON plus a MIME type. Higher-level agents decide what they understand.
+
+An A2A-style agent card can be published as just another artifact:
+
+```python
+from synapse_p2p import Node
+
+node = Node(
+    name="Tiny Review LLC",
+    role="reviewer",
+    swarm="code.review",
+    capabilities=["code-review", "pytest"],
+)
+
+node.artifact(
+    "agent-card",
+    {
+        "name": node.name,
+        "description": "Reviews Python PRs and returns concise feedback.",
+        "capabilities": ["code-review", "pytest"],
+        "input_modes": ["text", "git-diff", "url"],
+        "output_modes": ["text/markdown", "text/x-diff"],
+    },
+    mime_type="application/vnd.synapse.agent-card+json",
+    description="Self-description for agents that understand agent cards.",
+)
+```
+
+Peers discover and fetch advertised artifacts with system endpoints:
+
+```python
+from synapse_p2p import Client
+
+client = Client.from_peer(peer)
+
+artifacts = await client.call("_synapse.artifacts")
+# [{"name": "agent-card", "mime_type": "application/vnd.synapse.agent-card+json", ...}]
+
+agent_card = await client.call("_synapse.artifact.get", "agent-card")
+print(agent_card["mime_type"])
+print(agent_card["content"])
+```
+
+MIME types are conventions for consumers:
+
+- `application/vnd.synapse.agent-card+json` — a Synapse/A2A-style self-description
+- `application/vnd.synapse.capability-schema+json` — capability-specific input/output schema
+- `text/markdown`, `application/pdf`, `image/png`, `text/x-diff` — normal document/file types
+
+For now, artifacts are small inline documents served over RPC. Large artifacts can advertise external URIs in their content or metadata.
 
 ---
 

@@ -1,4 +1,5 @@
 from synapse_p2p import (
+    AdvertisedArtifact,
     BaseRPCSerializer,
     Broadcast,
     BroadcastReply,
@@ -12,10 +13,12 @@ from synapse_p2p import (
     RPCError,
     RPCRequest,
     RPCResponse,
+    ServedArtifact,
 )
 
 
 def test_substrate_types_are_exported_from_top_level_package():
+    assert AdvertisedArtifact is not None
     assert BaseRPCSerializer is not None
     assert Broadcast is not None
     assert BroadcastReply is not None
@@ -29,3 +32,4 @@ def test_substrate_types_are_exported_from_top_level_package():
     assert RPCRequest is not None
     assert RPCResponse is not None
     assert RemoteProcedureCall is RPCRequest
+    assert ServedArtifact is not None

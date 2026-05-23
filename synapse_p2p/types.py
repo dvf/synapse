@@ -105,6 +105,61 @@ class BroadcastReply:
         return {"nonce": self.nonce, "peer": self.peer.to_dict(), "result": self.result}
 
 
+@dataclass(slots=True)
+class AdvertisedArtifact:
+    """Descriptor for a small document or resource a node can serve to peers."""
+
+    name: str
+    mime_type: str
+    kind: str = "metadata"
+    description: str = ""
+    encoding: str = "json"
+    size: int | None = None
+    sha256: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> AdvertisedArtifact:
+        return cls(**data)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class ServedArtifact:
+    """Artifact descriptor plus inline content returned by a node."""
+
+    name: str
+    mime_type: str
+    content: Any
+    kind: str = "metadata"
+    description: str = ""
+    encoding: str = "json"
+    size: int | None = None
+    sha256: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ServedArtifact:
+        return cls(**data)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    def descriptor(self) -> AdvertisedArtifact:
+        return AdvertisedArtifact(
+            name=self.name,
+            mime_type=self.mime_type,
+            kind=self.kind,
+            description=self.description,
+            encoding=self.encoding,
+            size=self.size,
+            sha256=self.sha256,
+            metadata=dict(self.metadata),
+        )
+
+
 def build_connection_from_peer_name(peer_name: tuple[str, int]) -> Connection:
     ip, port = peer_name
     identifier = sha256(f"{ip}:{port}".encode()).hexdigest()[:8]
