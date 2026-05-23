@@ -14,9 +14,8 @@
 
 <br>
 <hr>
+
 Synapse is a lightweight peer-to-peer substrate for agent infrastructure. Give each process a `Node` and Synapse gives that node a name, peers, capabilities, RPC endpoints, shared conversations, agent cards, heartbeats, and periodic tasks.
-
-
 
 ```python
 from synapse_p2p import Node, solar
