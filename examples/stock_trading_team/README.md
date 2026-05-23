@@ -10,26 +10,24 @@ Nodes:
 - `trader.py` — coordinates the team, starts shared conversations, and places paper orders.
 
 ```mermaid
-flowchart LR
-    Exchange["paper-exchange<br/>API + bootstrap"]
-    Trader["trader<br/>periodic coordinator"]
-    Analyst["analyst"]
-    News["news-observer"]
+flowchart TB
+    subgraph Swarm["Synapse swarm: stocks.example.market"]
+        Conversation[("shared conversation<br/>synapse.ask / ACK / replies")]
+        Trader["trader<br/>periodic market-hours job"]
+        Analyst["analyst"]
+        News["news-observer"]
+        Exchange["paper-exchange<br/>dumb RPC API + seed"]
+    end
 
-    Trader <--> Exchange
-    Trader <--> Analyst
-    Trader <--> News
-    Analyst -. swarm discovery .- Exchange
-    News -. swarm discovery .- Exchange
+    Trader --> Conversation
+    Analyst --> Conversation
+    News --> Conversation
+    Exchange -. can observe .- Conversation
 
-    Conversation((shared conversation))
-    Trader --- Conversation
-    Analyst --- Conversation
-    News --- Conversation
-    Exchange --- Conversation
+    Trader -->|"RPC: market_status / quote / order"| Exchange
 ```
 
-The exchange is the dumb API/bootstrap node. The trader periodically checks the market, starts a shared conversation when appropriate, and every node can observe or participate in that conversation. Analyst/news nodes can wade in with ACKs and replies; the exchange can stay dumb and just serve API calls.
+The exchange is the dumb API/bootstrap node. The trader periodically checks market status through RPC. When the market is open, the trader starts a shared `synapse.ask` conversation. Analyst and news nodes can wade in with ACKs and replies. The exchange can observe the same swarm conversation, but it mostly stays dumb and serves API calls.
 
 Run it in four terminals:
 
