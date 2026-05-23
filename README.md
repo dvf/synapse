@@ -1,12 +1,12 @@
-<picture>
+<br><picture>
 <img width="400" alt="Synapse Logo" src="https://github.com/user-attachments/assets/706d1ce2-ae49-4c34-aa51-a5f8f1f5f68e" />
 </picture>
 
-<br><br>
+<br>
 
-**Build agent swarms: teams of named nodes that discover each other, share abilities, join conversations, expose custom endpoints, and wake up on schedules like sunrise.**
+**Build agent swarms: teams of nodes that discover each other, share abilities, join conversations, expose custom endpoints, and wake up on schedules like sunrise... across any network**
 
-Synapse is a tiny peer-to-peer substrate for agent infrastructure. Give each process a `Node`; Synapse gives that node a name, peers, capabilities, RPC endpoints, shared conversations, agent cards, heartbeats, and periodic tasks.
+Synapse is a lightweight peer-to-peer substrate for agent infrastructure. Give each process a `Node` and Synapse gives that node a name, peers, capabilities, RPC endpoints, shared conversations, agent cards, heartbeats, and periodic tasks.
 
 [![PyPI](https://img.shields.io/pypi/v/synapse-p2p.svg)](https://pypi.python.org/pypi/synapse-p2p)
 [![Tests](https://github.com/dvf/synapse/actions/workflows/test.yml/badge.svg)](https://github.com/dvf/synapse/actions/workflows/test.yml)
@@ -36,45 +36,43 @@ A node can wrap an LLM agent, a script, a service, a sensor, or a tool. Synapse 
 
 What makes it fun:
 
-- **Swarms are teams** — nodes find teammates by swarm name.
-- **Nodes have names and abilities** — advertise `code-review`, `weather`, `memory`, `watering`, anything.
-- **Shared conversations** — broadcast once; many nodes can wade in, reply, leave, and come back later.
-- **Custom endpoints** — expose any async function as swarm-callable RPC.
-- **Agent cards** — publish metadata so peers can understand what you are.
-- **Periodic tasks** — start work every minute, every weekday, or literally at sunrise.
+- **Swarms are teams**—nodes find teammates by swarm name.
+- **Nodes have names and abilities**—advertise `code-review`, `weather`, `memory`, `watering`, anything.
+- **Shared conversations**—broadcast once; many nodes can wade in, reply, leave, and come back later.
+- **Custom endpoints**—expose any async function as swarm-callable RPC.
+- **Agent cards**—publish metadata so peers can understand what you are.
+- **Periodic tasks**—start work every minute, every weekday, or literally at sunrise.
 
 ---
 
 ## 🧭 Table of contents
 
-- [📦 Install](#install)
-- [🧠 The mental model](#the-mental-model)
-- [✨ Why it feels different](#why-it-feels-different)
-- [🛠️ What can you build?](#what-can-you-build)
-- [⚖️ Synapse vs A2A](#synapse-vs-a2a)
-- [⚡ Quickstart: RPC](#quickstart-rpc)
-- [🐝 Swarms and discovery](#swarms-and-discovery)
-- [🎯 Capabilities](#capabilities)
-- [🤝 Ask: delegate work](#ask-delegate-work)
-- [💬 Broadcast: ask the swarm](#broadcast-ask-the-swarm)
-- [🌅 Periodic tasks](#periodic-tasks)
-- [🪪 Artifacts and agent cards](#artifacts-and-agent-cards)
-- [💓 Heartbeats](#heartbeats)
-- [🖥️ CLI](#cli)
-- [📚 Examples](#examples)
-- [🔌 Protocol details](#protocol-details)
-- [🚫 What Synapse is not](#what-synapse-is-not)
+- [Install](#install)
+- [The mental model](#the-mental-model)
+- [Why it feels different](#why-it-feels-different)
+- [What can you build?](#what-can-you-build)
+- [Synapse vs A2A](#synapse-vs-a2a)
+- [Quickstart: RPC](#quickstart-rpc)
+- [Swarms and discovery](#swarms-and-discovery)
+- [Capabilities](#capabilities)
+- [Ask: delegate work](#ask-delegate-work)
+- [Broadcast: ask the swarm](#broadcast-ask-the-swarm)
+- [Periodic tasks](#periodic-tasks)
+- [Artifacts and agent cards](#artifacts-and-agent-cards)
+- [Heartbeats](#heartbeats)
+- [CLI](#cli)
+- [Examples](#examples)
+- [Protocol details](#protocol-details)
+- [What Synapse is not](#what-synapse-is-not)
 
 ---
 
 ## 📦 Install
 
+Using `uv` or `pip`:
 ```bash
 uv add synapse-p2p
 ```
-
-or:
-
 ```bash
 pip install synapse-p2p
 ```
