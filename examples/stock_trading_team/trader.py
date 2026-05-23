@@ -1,4 +1,5 @@
 import asyncio
+from typing import Any, cast
 
 from examples.stock_trading_team.common import SWARM, seed
 from synapse_p2p import BroadcastReply, Client, ConversationEvent, Node, Peer, every
@@ -56,12 +57,12 @@ async def market_scan() -> None:
         return
 
     client = Client.from_peer(exchange)
-    status = await client.call("exchange.market_status")
+    status = cast(dict[str, Any], await client.call("exchange.market_status"))
     if not status["open"]:
         print(f"scan: market closed at {status['time']} — not spending agent tokens")
         return
 
-    quote = await client.call("exchange.quote", "NVDA")
+    quote = cast(dict[str, Any], await client.call("exchange.quote", "NVDA"))
     print(f"scan: market open, asking swarm about {quote['symbol']} @ ${quote['price']}")
 
     conversation = await node.broadcast(

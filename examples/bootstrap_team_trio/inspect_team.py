@@ -1,5 +1,6 @@
 import asyncio
 import os
+from typing import Any, cast
 
 from synapse_p2p import Client
 
@@ -14,7 +15,10 @@ async def main() -> None:
             f"at {peer.address}:{peer.port} capabilities={peer.capabilities}"
         )
         try:
-            card = await Client.from_peer(peer).call("_synapse.artifact.get", "agent-card")
+            card = cast(
+                dict[str, Any],
+                await Client.from_peer(peer).call("_synapse.artifact.get", "agent-card"),
+            )
         except RuntimeError:
             continue
         print(f"  agent-card: {card['content']}")
