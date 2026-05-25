@@ -1,0 +1,271 @@
+# Synapse
+
+> A lightweight peer-to-peer substrate for agent infrastructure. Synapse gives each process a `Node` that can discover peers, advertise capabilities, expose RPC endpoints, join shared conversations, publish artifacts/agent cards, heartbeat peers, and run periodic jobs.
+
+Repository: https://github.com/dvf/synapse
+Package: `synapse-p2p`
+CLI: `sn`
+Python: 3.10+
+
+## What Synapse is
+
+Synapse is the swarm/network layer underneath agents. It is not an agent framework.
+
+Core primitives:
+
+- `Node` — a running peer in a swarm
+- `Client` — calls another node over MsgPack-over-TCP RPC
+- swarms — named groups of nodes
+- capabilities — advertised abilities like `code-review`, `news`, `trading`
+- endpoints — async functions callable by peers
+- ask handlers — default task delegation with `@node.ask`
+- broadcast conversations — one shared nonce, many replies
+- conversation events — `message`, `ack`, `reply`, and custom event kinds
+- artifacts — small advertised documents/resources served over RPC
+- agent cards — conventional artifact MIME type for node self-description
+- periodic jobs — interval, cron, and solar schedules
+- discovery — local mDNS or remote seed nodes
+- heartbeats — peer liveness and offline detection
+
+## What Synapse is not
+
+Synapse does not implement planning, memory, model routing, consensus, auth policy, NAT traversal, hosted registries, financial policy, or agent intelligence. Those belong above Synapse.
+
+## Install
+
+```bash
+uv add synapse-p2p
+# or
+pip install synapse-p2p
+```
+
+## Basic RPC
+
+```python
+from synapse_p2p import Node
+
+node = Node(name="calculator", port=9999)
+
+@node.endpoint("sum", description="Add two numbers")
+async def sum_endpoint(a: int, b: int) -> int:
+    return a + b
+
+node.run()
+```
+
+```python
+import asyncio
+from synapse_p2p import Client
+
+async def main() -> None:
+    result = await Client("127.0.0.1", 9999).call("sum", 1, 2)
+    print(result)
+
+asyncio.run(main())
+```
+
+## Node with swarm discovery
+
+```python
+from synapse_p2p import Node
+
+node = Node(
+    name="reviewer",
+    role="reviewer",
+    swarm="foo.electron.network",
+    capabilities=["code-review"],
+    mdns=True,
+)
+
+await node.start()
+await node.join()
+```
+
+Use `seeds=["host:9999"]` for remote/bootstrap discovery.
+
+## Ask handlers
+
+```python
+from synapse_p2p import Node
+
+node = Node(name="reviewer", capabilities=["code-review"])
+
+@node.ask
+async def handle(task: str, context: dict):
+    return {"status": "done", "task": task, "context": context}
+```
+
+Direct ask:
+
+```python
+from synapse_p2p import Client
+
+result = await Client.from_peer(peer).call(
+    "_node.ask",
+    "Review this diff",
+    context={"diff": diff},
+)
+```
+
+Swarm ask:
+
+```python
+broadcast = await node.broadcast(
+    "synapse.ask",
+    "Review this diff",
+    context={"diff": diff},
+)
+```
+
+Nodes with `@node.ask` ACK the conversation, run the handler, and reply into the shared conversation.
+
+## Shared conversations
+
+```python
+from synapse_p2p import Broadcast, ConversationEvent, Node
+
+node = Node(name="worker", swarm="foo.electron.network")
+
+@node.on("conversation.ack")
+async def on_ack(event: ConversationEvent) -> None:
+    print(event.peer.name, "acked", event.conversation_id)
+
+@node.endpoint("team.question")
+async def answer(question: str, broadcast: Broadcast) -> dict:
+    await node.ack(broadcast, {"seen": True})
+    await node.reply(broadcast, {"answer": "I can help"})
+    return {"accepted": True}
+```
+
+Read replies/events:
+
+```python
+for reply in node.replies(broadcast):
+    print(reply.peer.name, reply.result)
+
+for event in node.conversation(broadcast):
+    print(event.kind, event.peer.name, event.payload)
+```
+
+ACK is opt-in. Synapse does not decide who should answer.
+
+## Artifacts and agent cards
+
+```python
+node.artifact(
+    "agent-card",
+    {
+        "name": node.name,
+        "description": "Reviews Python PRs and returns concise feedback.",
+        "capabilities": ["code-review", "pytest"],
+        "input_modes": ["text", "git-diff", "url"],
+        "output_modes": ["text/markdown", "text/x-diff"],
+    },
+    mime_type="application/vnd.synapse.agent-card+json",
+    description="Self-description for peers that understand agent cards.",
+)
+```
+
+Fetch from a peer:
+
+```python
+artifacts = await Client.from_peer(peer).call("_synapse.artifacts")
+agent_card = await Client.from_peer(peer).call("_synapse.artifact.get", "agent-card")
+```
+
+Synapse serves artifacts but does not interpret MIME types.
+
+## Periodic jobs
+
+```python
+from synapse_p2p import Node, cron, every, solar
+
+node = Node(name="garden-caretaker")
+
+@node.periodic(every(seconds=30))
+async def poll() -> None:
+    print("poll sensors")
+
+@node.periodic(cron("0 9 * * mon-fri", tz="Europe/London"))
+async def weekday_digest() -> None:
+    print("weekday digest")
+
+@node.periodic(solar("sunrise", latitude=51.5, longitude=-0.1, tz="Europe/London"))
+async def sunrise_job() -> None:
+    print("sunrise")
+
+node.run()
+```
+
+## CLI
+
+```bash
+sn --help
+sn watch foo.electron.network
+sn ask foo.electron.network "Review this diff" --context url=https://github.com/org/repo/pull/1
+sn broadcast foo.electron.network "hello swarm"
+sn list-swarms
+```
+
+`sn ask` broadcasts to `synapse.ask` and streams ACKs/replies.
+
+## Built-in endpoints
+
+- `_synapse.ping` — health check
+- `_synapse.info` — node identity and swarm metadata
+- `_synapse.methods` — published RPC methods
+- `_synapse.peers` — known peers
+- `_synapse.join` — join through a seed
+- `_synapse.heartbeat` — update peer liveness
+- `_synapse.broadcast.reply` — reply to a broadcast nonce
+- `_synapse.conversation.event` — gossip a shared conversation event
+- `_synapse.artifacts` — list advertised artifacts
+- `_synapse.artifact.get` — fetch one advertised artifact
+- `_node.info` — name, role, description, capabilities
+- `_node.capabilities` — machine-readable capabilities
+- `_node.ask` — delegate directly to node ask handler
+- `synapse.ask` — swarm-facing ask endpoint used by `sn ask`
+
+## Examples
+
+See `examples/`:
+
+- `examples/basic_rpc` — minimal direct RPC
+- `examples/isolated_agents` — one node delegates to another through a seed
+- `examples/bootstrap_team_trio` — bootstrap discovery, ask handlers, agent cards
+- `examples/local_mdns_swarm` — mDNS discovery plus ACKs/replies
+- `examples/pydantic_ai_team` — Pydantic AI agents behind Synapse nodes
+- `examples/periodic_tasks` — interval, cron, solar garden caretaker
+- `examples/stock_trading_team` — analyst/news/trader swarm with dumb paper exchange API and market-hours periodic scans
+
+## Development commands
+
+```bash
+uv sync --extra examples
+uv run ruff check synapse_p2p examples
+uv run pyrefly check
+uv run pytest
+```
+
+## Public imports
+
+```python
+from synapse_p2p import (
+    AdvertisedArtifact,
+    Broadcast,
+    BroadcastReply,
+    Capability,
+    Client,
+    ConversationEvent,
+    Node,
+    NodeKind,
+    Peer,
+    RPCError,
+    RPCRequest,
+    RPCResponse,
+    ServedArtifact,
+    cron,
+    every,
+    solar,
+)
+```
