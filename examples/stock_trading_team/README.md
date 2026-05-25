@@ -6,7 +6,7 @@ Nodes:
 
 - `exchange.py` — a dumb paper exchange API. It provides quotes, market status, and paper order placement. It does not make decisions.
 - `analyst.py` — wades into conversations with technical/risk analysis.
-- `news_observer.py` — wades into conversations with mock headline sentiment.
+- `news_observer.py` — periodically watches mock Nvidia headlines and wades into conversations with the latest sentiment.
 - `trader.py` — coordinates the team, starts shared conversations, and places paper orders.
 
 ```mermaid
@@ -46,6 +46,7 @@ What to notice:
 - The scan checks `exchange.market_status` first.
 - If the market is closed, the trader does nothing: no ask, no agent work, no token spend.
 - If the market is open, the trader broadcasts `synapse.ask`.
+- The news observer periodically refreshes its mock Nvidia headline.
 - Analyst and news observer opt in with ACKs and reply into the same conversation.
 - The trader reads replies and may place a paper order through the exchange API.
 
