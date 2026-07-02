@@ -117,7 +117,7 @@ broadcast = await node.broadcast(
 )
 ```
 
-Nodes with `@node.ask` ACK the conversation, run the handler, and reply into the shared conversation.
+Nodes with `@node.ask` ACK the conversation, run the handler in the background, and reply into the shared conversation later. The swarm-ask RPC returns `{"accepted": True, "deferred": True}` immediately, so slow handlers (e.g. LLM calls) never hold a socket open. Handler errors become `conversation.error` events. Direct `_node.ask` stays synchronous.
 
 ## Shared conversations
 
@@ -148,6 +148,54 @@ for event in node.conversation(broadcast):
 ```
 
 ACK is opt-in. Synapse does not decide who should answer.
+
+## Conversation memory: durability, sync, compaction
+
+```python
+from synapse_p2p import ConversationEvent, Node, SqliteConversationLog
+
+node = Node(
+    name="architect",
+    conversation_log=SqliteConversationLog("conversations.db"),  # default is in-memory
+    conversation_max_events=100,     # auto-compact past this many events
+    conversation_keep_recent=25,     # keep this many recent events verbatim
+)
+
+@node.summarizer
+async def summarize(events: list[ConversationEvent]) -> str:
+    return "..."  # optional LLM summarizer; default is an extractive digest
+
+# late joiner or restarted node catches up from any peer
+added = await node.sync_conversation(peer, conversation_id)
+
+# manual compaction; emits a "conversation.compacted" lifecycle event
+summary_event = await node.compact_conversation(conversation_id)
+```
+
+Compaction folds older events into one `summary` kind event, preserving the opening `message` event and the recent tail. Compaction is local per node; compacted event ids stay remembered so gossip cannot resurrect them.
+
+## Teams task layer (`synapse_p2p.teams`)
+
+Optional layer built entirely on conversation events. A `Team` offers tasks; `Worker`s claim tasks whose `requires` match their node capabilities; the team grants each task to the first claimant, so exactly one worker runs it.
+
+```python
+from synapse_p2p.teams import Assignment, Team, TeamTaskError, Worker
+
+# offering side
+team = Team(node)
+task = await team.offer("implement the parser", spec={"file": "parser.py"}, requires=["python"])
+result = await team.wait(task, timeout=600)  # raises TeamTaskError on failure/timeout
+
+# worker side
+worker = Worker(worker_node)
+
+@worker.task
+async def implement(assignment: Assignment):
+    await assignment.progress("starting", step=1)
+    return {"diff": "..."}
+```
+
+Event kinds per task conversation (`conversation_id == task id`): `task.offer` → `task.claim` → `task.grant` → `task.progress` → `task.done` or `task.failed`.
 
 ## Artifacts and agent cards
 
@@ -219,6 +267,8 @@ sn list-swarms
 - `_synapse.heartbeat` — update peer liveness
 - `_synapse.broadcast.reply` — reply to a broadcast nonce
 - `_synapse.conversation.event` — gossip a shared conversation event
+- `_synapse.conversation.sync` — serve a conversation's events to a late joiner
+- `_synapse.conversation.list` — list locally known conversation ids
 - `_synapse.artifacts` — list advertised artifacts
 - `_synapse.artifact.get` — fetch one advertised artifact
 - `_node.info` — name, role, description, capabilities
@@ -237,6 +287,7 @@ See `examples/`:
 - `examples/pydantic_ai_team` — Pydantic AI agents behind Synapse nodes
 - `examples/periodic_tasks` — interval, cron, solar garden caretaker
 - `examples/stock_trading_team` — analyst/news/trader swarm with dumb paper exchange API and market-hours periodic scans
+- `examples/coding_team` — architect + coder agents on different models via the teams layer
 
 ## Development commands
 
@@ -252,11 +303,13 @@ uv run pytest
 ```python
 from synapse_p2p import (
     AdvertisedArtifact,
+    BaseConversationLog,
     Broadcast,
     BroadcastReply,
     Capability,
     Client,
     ConversationEvent,
+    MemoryConversationLog,
     Node,
     NodeKind,
     Peer,
@@ -264,8 +317,12 @@ from synapse_p2p import (
     RPCRequest,
     RPCResponse,
     ServedArtifact,
+    SqliteConversationLog,
     cron,
+    default_summarizer,
     every,
     solar,
 )
+
+from synapse_p2p.teams import Assignment, Team, TeamTask, TeamTaskError, Worker
 ```

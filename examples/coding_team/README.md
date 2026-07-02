@@ -1,23 +1,12 @@
-# Coding team: an architect and coders on different models
+# Coding team
 
-A minimal heterogeneous agent team built on `synapse_p2p.teams`:
+An architect and two coders, each free to run a different model. The architect offers tasks to the swarm, grants each one to the first coder that claims it, collects the results, and reviews them. Coders claim tasks whose `requires` match their advertised capabilities and narrate progress as they work.
 
-- **architect** — oversees the work. Offers tasks to the swarm, grants each to
-  the first capable claimant, collects results, and reviews them with its own
-  model (e.g. Claude).
-- **coder-1 / coder-2** — claim tasks whose `requires` match their advertised
-  capabilities, implement them with their own model (e.g. GPT), and narrate
-  progress into the shared task conversation.
+Every task is a shared conversation (`conversation_id == task id`) that all peers gossip: offer, claim, grant, progress, done. The architect sets `conversation_max_events=30`, so long task threads get folded into summary events automatically.
 
-Every task is one shared conversation (`conversation_id == task id`) that all
-peers gossip: offer → claim → grant → progress → done. The architect compacts
-long task threads automatically (`conversation_max_events=30`), folding old
-progress chatter into a `summary` event.
+## Run it offline
 
-## Run it (offline)
-
-Without model env vars the agents use pydantic-ai's `TestModel`, so the whole
-flow runs with no API keys. From the repo root, in three terminals:
+Without model env vars the agents fall back to pydantic-ai's `TestModel`, so no API keys are needed. From the repo root, in three terminals:
 
 ```bash
 CODER_NAME=coder-1 uv run python -m examples.coding_team.coder
@@ -25,7 +14,7 @@ CODER_NAME=coder-2 uv run python -m examples.coding_team.coder
 uv run python -m examples.coding_team.architect
 ```
 
-Watch the swarm from a fourth terminal:
+Watch the swarm from a fourth:
 
 ```bash
 uv run sn watch team.electron.network
@@ -39,15 +28,8 @@ ARCHITECT_MODEL=anthropic:claude-fable-5 uv run python -m examples.coding_team.a
 CODER_MODEL=openai:gpt-5.5 CODER_NAME=coder-1 uv run python -m examples.coding_team.coder
 ```
 
-Any pydantic-ai model string works; the swarm doesn't care what model sits
-behind a node. To push a coder's reasoning effort up, configure the agent's
-`model_settings` in `common.py` (e.g. OpenAI's `reasoning_effort`).
+Any pydantic-ai model string works; the swarm doesn't care what sits behind a node. To raise a coder's reasoning effort, set `model_settings` on the agent in `common.py`.
 
-## What to look at
+## Notes
 
-- `synapse_p2p/teams.py` — the whole task vocabulary is ~200 lines of
-  conversation events. Nothing here is special-cased in the substrate.
-- Deferred results: coders return immediately at the RPC layer and deliver
-  results as conversation events, so a task can take as long as the model needs.
-- Late joiners can catch up on a task thread with
-  `node.sync_conversation(peer, task_id)`.
+The whole task vocabulary lives in `synapse_p2p/teams.py` and is just conversation events; nothing in the substrate is special-cased for it. Coders return from the RPC immediately and deliver results as events, so a task can take as long as the model needs. A node that joins mid-task can catch up with `node.sync_conversation(peer, task_id)`.
