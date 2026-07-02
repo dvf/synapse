@@ -20,6 +20,12 @@ __logo__ = f"""
 """
 
 from synapse_p2p.client import Client
+from synapse_p2p.conversations import (
+    BaseConversationLog,
+    MemoryConversationLog,
+    SqliteConversationLog,
+    default_summarizer,
+)
 from synapse_p2p.messages import RemoteProcedureCall, RPCError, RPCRequest, RPCResponse
 from synapse_p2p.node import Capability, Node
 from synapse_p2p.schedules import CronSchedule, IntervalSchedule, SolarSchedule, cron, every, solar
@@ -40,6 +46,7 @@ logger.disable("synapse_p2p")
 __all__ = [
     "AdvertisedArtifact",
     "Capability",
+    "BaseConversationLog",
     "BaseRPCSerializer",
     "Broadcast",
     "BroadcastReply",
@@ -47,6 +54,7 @@ __all__ = [
     "Connection",
     "ConversationEvent",
     "CronSchedule",
+    "MemoryConversationLog",
     "MessagePackRPCSerializer",
     "Node",
     "NodeKind",
@@ -56,9 +64,11 @@ __all__ = [
     "RPCResponse",
     "RemoteProcedureCall",
     "ServedArtifact",
+    "SqliteConversationLog",
     "IntervalSchedule",
     "SolarSchedule",
     "cron",
+    "default_summarizer",
     "every",
     "solar",
     "__logo__",

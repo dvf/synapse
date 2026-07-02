@@ -331,7 +331,7 @@ broadcast = await node.broadcast(
 )
 ```
 
-A node with an `@node.ask` handler will ACK the conversation, run the handler, and reply with the result. Nodes without a handler fail quietly from the caller's point of view, just like any other broadcast recipient that cannot help.
+A node with an `@node.ask` handler will ACK the conversation, then run the handler **in the background** and deliver the result later as a broadcast reply. The origin's RPC returns immediately with `{"accepted": True, "deferred": True}`, so a handler that wraps a slow LLM can take minutes without holding a socket open. If the handler raises, the node emits a `conversation.error` event instead of a reply. Nodes without a handler fail quietly from the caller's point of view, just like any other broadcast recipient that cannot help.
 
 The CLI wraps this flow:
 
@@ -411,6 +411,70 @@ Why this is useful:
 - ACK is opt-in, not automatic assignment
 - replies and events group without a central coordinator
 - UUIDv7 nonces keep conversations roughly time-ordered when the runtime supports them
+
+---
+
+## 🗜️  Conversation memory: durability, sync, and compaction
+
+Conversation events live in a pluggable log. The default is in-memory; pass a SQLite log to survive restarts:
+
+```python
+from synapse_p2p import Node, SqliteConversationLog
+
+node = Node(
+    name="architect",
+    conversation_log=SqliteConversationLog("architect-conversations.db"),
+)
+```
+
+A late joiner (or a restarted node) can pull a conversation it missed from any peer:
+
+```python
+added = await node.sync_conversation(peer, conversation_id)
+```
+
+Long conversations compact automatically. When a conversation grows past `conversation_max_events`, the node folds older events into a single `summary` event, keeping the opening message and the most recent `conversation_keep_recent` events verbatim:
+
+```python
+node = Node(
+    name="architect",
+    conversation_max_events=100,
+    conversation_keep_recent=25,
+)
+
+
+@node.summarizer
+async def summarize(events: list[ConversationEvent]) -> str:
+    transcript = "\n".join(f"{e.peer.name} [{e.kind}]: {e.payload}" for e in events)
+    return await my_llm_summarize(transcript)  # bring your own model
+```
+
+Without a custom summarizer, Synapse uses a naive extractive digest. Compaction is **local**: each node compresses its own copy of the shared log, and gossip cannot resurrect compacted events. You can also compact on demand with `await node.compact_conversation(conversation_id)` and observe it with `@node.on("conversation.compacted")`.
+
+---
+
+## 👷  Teams: an optional task layer
+
+`synapse_p2p.teams` layers a small task vocabulary on top of conversation events — nothing in the substrate is special-cased for it. A `Team` offers work; `Worker`s claim tasks matching their capabilities; the team grants each task to the first claimant, so exactly one worker runs it.
+
+```python
+from synapse_p2p.teams import Assignment, Team, Worker
+
+# architect process
+team = Team(node)
+task = await team.offer("implement the parser", spec={"file": "parser.py"}, requires=["python"])
+result = await team.wait(task, timeout=600)
+
+# coder process
+worker = Worker(coder_node)
+
+@worker.task
+async def implement(assignment: Assignment) -> dict:
+    await assignment.progress("starting")
+    return {"diff": await my_agent.run(assignment.title, assignment.spec)}
+```
+
+Each task is one shared conversation (`task.offer` → `task.claim` → `task.grant` → `task.progress` → `task.done` / `task.failed`), so every peer can watch the work happen, late joiners can sync it, and long task threads compact like any other conversation. See [`examples/coding_team`](./examples/coding_team) for an architect on one model overseeing coders on another.
 
 ---
 
@@ -602,6 +666,7 @@ See [`examples/`](./examples). Each example folder has its own README.
 | [`pydantic_ai_team`](./examples/pydantic_ai_team) | Pydantic AI agents behind Synapse nodes. |
 | [`periodic_tasks`](./examples/periodic_tasks) | Interval, cron, sunrise, and sunset jobs in a garden-caretaker node. |
 | [`stock_trading_team`](./examples/stock_trading_team) | Analyst/news/trader swarm with a dumb paper exchange API and market-hours periodic scans. |
+| [`coding_team`](./examples/coding_team) | An architect and coder agents on different models, coordinated through the `synapse_p2p.teams` task layer. |
 
 The agent examples use `synapse.ask`, opt-in ACKs, shared conversation replies, and advertised `agent-card` artifacts. The stock example shows a periodic job that checks market hours before asking the swarm, so agent/model work only happens when the paper market is open.
 
@@ -621,6 +686,8 @@ Built-in endpoints:
 | `_synapse.heartbeat` | update peer liveness |
 | `_synapse.broadcast.reply` | reply to a broadcast nonce |
 | `_synapse.conversation.event` | gossip a shared conversation event |
+| `_synapse.conversation.sync` | serve a conversation's events to a late joiner |
+| `_synapse.conversation.list` | list locally known conversation ids |
 | `_synapse.artifacts` | list advertised artifacts |
 | `_synapse.artifact.get` | fetch one advertised artifact |
 | `_node.info` | name, role, description, capabilities |
@@ -632,6 +699,8 @@ Wire format:
 
 1. 4-byte unsigned big-endian payload length
 2. MsgPack payload bytes
+
+Frames up to 4 MiB are accepted by default (`Node(max_upload_size=...)`, `Client(max_download_size=...)`), so results can carry real payloads like diffs and documents.
 
 Request:
 
@@ -690,7 +759,7 @@ logger.enable("synapse_p2p")
 
 Synapse does **not** implement planning, memory, consensus, auth policy, NAT traversal, hosted registries, or UX.
 
-Those belong above Synapse.
+Those belong above Synapse. (Two exceptions are on the roadmap because they belong *in* the substrate: node identity + signed gossip for untrusted networks, and a relay mode so seeds can bridge peers that cannot dial each other.)
 
 Synapse is the substrate:
 

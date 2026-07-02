@@ -14,7 +14,7 @@ class Client:
         address: str = "127.0.0.1",
         port: int = 9999,
         serializer_class: type[BaseRPCSerializer] = MessagePackRPCSerializer,
-        max_download_size: int = 4096,
+        max_download_size: int = 4 * 1024 * 1024,
         timeout: float | None = 30,
     ) -> None:
         self.address = connect_address(address)
@@ -29,7 +29,7 @@ class Client:
         peer: Peer,
         *,
         serializer_class: type[BaseRPCSerializer] = MessagePackRPCSerializer,
-        max_download_size: int = 4096,
+        max_download_size: int = 4 * 1024 * 1024,
         timeout: float | None = 30,
     ) -> "Client":
         return cls(
