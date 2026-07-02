@@ -159,6 +159,7 @@ node = Node(
     conversation_log=SqliteConversationLog("conversations.db"),  # default is in-memory
     conversation_max_events=100,     # auto-compact past this many events
     conversation_keep_recent=25,     # keep this many recent events verbatim
+    conversation_retention=86_400,   # prune conversations quiet for this many seconds
 )
 
 @node.summarizer
@@ -172,7 +173,7 @@ added = await node.sync_conversation(peer, conversation_id)
 summary_event = await node.compact_conversation(conversation_id)
 ```
 
-Compaction folds older events into one `summary` kind event, preserving the opening `message` event and the recent tail. Compaction is local per node; compacted event ids stay remembered so gossip cannot resurrect them.
+Compaction folds older events into one `summary` kind event, preserving the opening `message` event and the recent tail. Compaction is local per node; compacted event ids stay remembered so gossip cannot resurrect them. With `conversation_retention` set, conversations inactive past the window are pruned entirely and events older than the window are refused, so infinitely long-running nodes stay on bounded memory/disk.
 
 ## Teams task layer (`synapse_p2p.teams`)
 
@@ -182,7 +183,7 @@ Optional layer built entirely on conversation events. A `Team` offers tasks; `Wo
 from synapse_p2p.teams import Assignment, Team, TeamTaskError, Worker
 
 # offering side
-team = Team(node)
+team = Team(node, lease=300, max_attempts=None, task_retention=None)
 task = await team.offer("implement the parser", spec={"file": "parser.py"}, requires=["python"])
 result = await team.wait(task, timeout=600)  # raises TeamTaskError on failure/timeout
 
@@ -196,6 +197,14 @@ async def implement(assignment: Assignment):
 ```
 
 Event kinds per task conversation (`conversation_id == task id`): `task.offer` → `task.claim` → `task.grant` → `task.progress` → `task.done` or `task.failed`.
+
+Long-running semantics:
+
+- Progress events renew the task lease; `Worker` heartbeats automatically every `renew_interval` seconds while a handler runs, so handlers can take hours.
+- If an assignee goes quiet past `lease` (or an offer sits unclaimed), the team re-offers the task; `max_attempts` caps retries and then fails the task. Late-joining workers pick up re-offered work.
+- `team.restore()` rebuilds the task table from a durable conversation log after a restart (match by stable node name or id); unfinished tasks are re-offered by the lease reaper.
+- `task_retention` prunes finished tasks from memory after that many seconds.
+- Delivery is at-least-once; the first `task.done` wins.
 
 ## Artifacts and agent cards
 

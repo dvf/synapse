@@ -33,14 +33,19 @@ async def default_summarizer(events: list[ConversationEvent]) -> str:
         if event.kind == SUMMARY_KIND:
             previous = str(event.payload.get(SUMMARY_KIND, ""))
             if previous:
-                lines.append(previous)
+                lines.append(previous[:1500])
             continue
         preview = json.dumps(event.payload, default=str)
         if len(preview) > 200:
             preview = preview[:200] + "…"
         lines.append(f"{event.peer.name or event.peer.id} [{event.kind}]: {preview}")
     header = ", ".join(f"{count} {kind}" for kind, count in sorted(counts.items()))
-    return f"({header})\n" + "\n".join(lines[-40:])
+    # Bound the output so repeated compaction of an endless conversation
+    # converges instead of growing a summary-of-summaries chain.
+    body = "\n".join(lines[-40:])
+    if len(body) > 6000:
+        body = "…" + body[-6000:]
+    return f"({header})\n{body}"
 
 
 class BaseConversationLog:
@@ -73,6 +78,13 @@ class BaseConversationLog:
     ) -> None:
         raise NotImplementedError
 
+    def last_activity(self, conversation_id: str) -> float:
+        raise NotImplementedError
+
+    def prune(self, conversation_id: str) -> None:
+        """Delete a conversation entirely, including remembered event ids."""
+        raise NotImplementedError
+
     def close(self) -> None:
         pass
 
@@ -81,11 +93,13 @@ class MemoryConversationLog(BaseConversationLog):
     def __init__(self) -> None:
         self._events: dict[str, list[ConversationEvent]] = {}
         self._seen: set[str] = set()
+        self._ids: dict[str, set[str]] = {}
 
     def append(self, event: ConversationEvent) -> bool:
         if event.event_id in self._seen:
             return False
         self._seen.add(event.event_id)
+        self._ids.setdefault(event.conversation_id, set()).add(event.event_id)
         self._events.setdefault(event.conversation_id, []).append(event)
         return True
 
@@ -117,9 +131,18 @@ class MemoryConversationLog(BaseConversationLog):
             if event.event_id not in removed
         ]
         self._seen.add(summary.event_id)
+        self._ids.setdefault(conversation_id, set()).add(summary.event_id)
         merged = kept + [summary]
         merged.sort(key=lambda event: event.created_at)
         self._events[conversation_id] = merged
+
+    def last_activity(self, conversation_id: str) -> float:
+        events = self._events.get(conversation_id, [])
+        return max((event.created_at for event in events), default=0.0)
+
+    def prune(self, conversation_id: str) -> None:
+        self._events.pop(conversation_id, None)
+        self._seen -= self._ids.pop(conversation_id, set())
 
 
 class SqliteConversationLog(BaseConversationLog):
@@ -195,8 +218,10 @@ class SqliteConversationLog(BaseConversationLog):
         removed_event_ids: list[str],
         summary: ConversationEvent,
     ) -> None:
+        # Blank the payload of compacted rows: they only exist so gossip
+        # cannot resurrect the events they deduplicate.
         self._db.executemany(
-            "UPDATE events SET compacted = 1 WHERE event_id = ?",
+            "UPDATE events SET compacted = 1, data = '' WHERE event_id = ?",
             [(event_id,) for event_id in removed_event_ids],
         )
         self._db.execute(
@@ -209,6 +234,17 @@ class SqliteConversationLog(BaseConversationLog):
                 json.dumps(summary.to_dict(), default=str),
             ),
         )
+        self._db.commit()
+
+    def last_activity(self, conversation_id: str) -> float:
+        row = self._db.execute(
+            "SELECT MAX(created_at) FROM events WHERE conversation_id = ?",
+            (conversation_id,),
+        ).fetchone()
+        return float(row[0]) if row and row[0] is not None else 0.0
+
+    def prune(self, conversation_id: str) -> None:
+        self._db.execute("DELETE FROM events WHERE conversation_id = ?", (conversation_id,))
         self._db.commit()
 
     def close(self) -> None:
