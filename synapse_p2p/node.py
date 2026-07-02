@@ -14,6 +14,13 @@ from loguru import logger
 
 from synapse_p2p import __logo__
 from synapse_p2p.client import Client
+from synapse_p2p.conversations import (
+    SUMMARY_KIND,
+    BaseConversationLog,
+    MemoryConversationLog,
+    Summarizer,
+    default_summarizer,
+)
 from synapse_p2p.exceptions import InvalidMessageError
 from synapse_p2p.framing import read_frame, write_frame
 from synapse_p2p.mdns import MdnsDiscovery
@@ -70,7 +77,7 @@ class Node:
         port: int = 0,
         advertise: str | None = "auto",
         serializer_class: type[BaseRPCSerializer] = MessagePackRPCSerializer,
-        max_upload_size: int = 4096,
+        max_upload_size: int = 4 * 1024 * 1024,
         node_id: str | None = None,
         name: str = "",
         role: str = "",
@@ -83,6 +90,10 @@ class Node:
         mdns: bool = False,
         heartbeat_interval: float | None = 5,
         peer_timeout: float = 20,
+        conversation_log: BaseConversationLog | None = None,
+        conversation_max_events: int | None = None,
+        conversation_keep_recent: int = 25,
+        summarizer: Summarizer | None = None,
     ) -> None:
         self.bind = bind
         self.advertise = advertise
@@ -104,8 +115,12 @@ class Node:
         self.peer_timeout = peer_timeout
         self.peers: dict[str, Peer] = {}
         self.broadcast_replies: dict[str, list[BroadcastReply]] = {}
-        self.conversation_events: dict[str, list[ConversationEvent]] = {}
-        self._seen_conversation_events: set[str] = set()
+        self.conversation_log = conversation_log or MemoryConversationLog()
+        self.conversation_max_events = conversation_max_events
+        self.conversation_keep_recent = conversation_keep_recent
+        self._summarizer: Summarizer = summarizer or default_summarizer
+        self._compacting: set[str] = set()
+        self._background: set[asyncio.Task] = set()
         self.artifact_directory: dict[str, ServedArtifact] = {}
         self.lifecycle_handlers: dict[str, list[Callable[[Any], Coroutine[Any, Any, None]]]] = {}
         self.endpoint_directory: dict[str, Callable] = {}
@@ -353,10 +368,17 @@ class Node:
         return self._listener
 
     async def stop(self) -> None:
-        """Stop accepting connections and cancel periodic tasks."""
+        """Stop accepting connections and cancel periodic and background tasks."""
         await self.periodic_executor.stop()
         if self.mdns is not None:
             await self.mdns.stop()
+
+        for task in list(self._background):
+            task.cancel()
+        if self._background:
+            await asyncio.gather(*self._background, return_exceptions=True)
+        self._background.clear()
+
         if self._listener is None:
             return
 
@@ -416,9 +438,16 @@ class Node:
 
         return decorator
 
+    def _spawn(self, coroutine: Coroutine[Any, Any, Any], *, name: str) -> asyncio.Task:
+        """Run a coroutine in the background, keeping a strong reference until done."""
+        task = asyncio.create_task(coroutine, name=name)
+        self._background.add(task)
+        task.add_done_callback(self._background.discard)
+        return task
+
     def _emit_lifecycle(self, event: str, payload: Any) -> None:
         for handler in self.lifecycle_handlers.get(event, []):
-            asyncio.create_task(handler(payload), name=event)
+            self._spawn(handler(payload), name=event)
 
     def add_peer(self, peer: Peer, *, event: str = "peer.joined") -> None:
         if peer.id == self.node_id:
@@ -545,18 +574,119 @@ class Node:
         conversation_id = (
             conversation.nonce if isinstance(conversation, Broadcast) else conversation
         )
-        return list(self.conversation_events.get(conversation_id, []))
+        return self.conversation_log.events(conversation_id)
+
+    def conversations(self) -> list[str]:
+        """Return ids of all locally known conversations."""
+        return self.conversation_log.conversations()
 
     def _remember_conversation_event(self, event: ConversationEvent) -> bool:
-        if event.event_id in self._seen_conversation_events:
-            return False
         self._validate_peer_membership(event.peer)
-        self._seen_conversation_events.add(event.event_id)
-        self.conversation_events.setdefault(event.conversation_id, []).append(event)
+        if not self.conversation_log.append(event):
+            return False
         self.add_peer(event.peer)
         self._emit_lifecycle("conversation.event", event)
         self._emit_lifecycle(f"conversation.{event.kind}", event)
+        self._maybe_compact(event.conversation_id)
         return True
+
+    def summarizer(self, wrapped: Summarizer) -> Summarizer:
+        """Register the coroutine used to summarize events during compaction."""
+        self._summarizer = wrapped
+        return wrapped
+
+    def _maybe_compact(self, conversation_id: str) -> None:
+        if self.conversation_max_events is None:
+            return
+        if conversation_id in self._compacting:
+            return
+        if self.conversation_log.count(conversation_id) <= self.conversation_max_events:
+            return
+        self._compacting.add(conversation_id)
+        self._spawn(self._compact_and_release(conversation_id), name="conversation.compact")
+
+    async def _compact_and_release(self, conversation_id: str) -> None:
+        try:
+            await self.compact_conversation(conversation_id)
+        except Exception:
+            logger.exception("Could not compact conversation {}", conversation_id)
+        finally:
+            self._compacting.discard(conversation_id)
+
+    async def compact_conversation(
+        self,
+        conversation: Broadcast | str,
+        *,
+        keep_recent: int | None = None,
+    ) -> ConversationEvent | None:
+        """Fold older events into one local ``summary`` event.
+
+        Compaction is local: each node compresses its own copy of the shared
+        log. Gossip cannot resurrect compacted events because their ids stay
+        remembered by the conversation log.
+        """
+        conversation_id = (
+            conversation.nonce if isinstance(conversation, Broadcast) else conversation
+        )
+        keep = self.conversation_keep_recent if keep_recent is None else keep_recent
+        events = self.conversation_log.events(conversation_id)
+        head = events[0] if events and events[0].kind == "message" else None
+        compactable = [event for event in events[: len(events) - keep] if event is not head]
+        if not compactable:
+            return None
+
+        summary_text = await self._summarizer(compactable)
+        summary = ConversationEvent(
+            conversation_id=conversation_id,
+            event_id=random_hash(),
+            kind=SUMMARY_KIND,
+            peer=self.self_peer(),
+            payload={
+                SUMMARY_KIND: summary_text,
+                "compacted_events": len(compactable),
+                "from": compactable[0].created_at,
+                "until": compactable[-1].created_at,
+            },
+            parent_id=head.event_id if head is not None else None,
+            # Take the newest compacted timestamp so the summary sorts where
+            # the events it replaces used to sit.
+            created_at=compactable[-1].created_at,
+        )
+        self.conversation_log.compact(
+            conversation_id,
+            [event.event_id for event in compactable],
+            summary,
+        )
+        self._emit_lifecycle("conversation.compacted", summary)
+        return summary
+
+    async def sync_conversation(
+        self,
+        peer: Peer,
+        conversation: Broadcast | str,
+        *,
+        since: float = 0.0,
+    ) -> int:
+        """Pull a conversation's events from a peer; return how many were new.
+
+        Lets a late joiner (or a restarted node) catch up on a shared
+        conversation it missed. Synced events are stored and emitted locally
+        but not re-gossiped.
+        """
+        conversation_id = (
+            conversation.nonce if isinstance(conversation, Broadcast) else conversation
+        )
+        response = await Client.from_peer(peer).call(
+            "_synapse.conversation.sync", conversation_id, since=since
+        )
+        if not isinstance(response, dict):
+            return 0
+        added = 0
+        for data in response.get("events", []):
+            event = ConversationEvent.from_dict(data)
+            with contextlib.suppress(InvalidMessageError):
+                added += self._remember_conversation_event(event)
+        return added
 
     async def emit_conversation_event(
         self,
@@ -669,12 +799,30 @@ class Node:
         ) -> Any:
             if self._ask_handler is None:
                 raise RuntimeError("node has no ask handler")
-            if broadcast is not None:
-                await self.ack(broadcast)
-            result = await self._ask_handler(task, context or {})
-            if broadcast is not None:
-                await self.reply(broadcast, result)
-            return result
+            if broadcast is None:
+                return await self._ask_handler(task, context or {})
+            # Defer: ACK now, run the handler in the background, and deliver
+            # the result as a broadcast reply. Keeps the origin's RPC short no
+            # matter how long the agent behind the handler takes.
+            await self.ack(broadcast)
+            self._spawn(self._run_deferred_ask(task, context or {}, broadcast), name="synapse.ask")
+            return {"accepted": True, "deferred": True}
+
+    async def _run_deferred_ask(
+        self, task: str, context: dict[str, Any], broadcast: Broadcast
+    ) -> None:
+        assert self._ask_handler is not None
+        try:
+            result = await self._ask_handler(task, context)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.exception("Ask handler raised for broadcast {}", broadcast.nonce)
+            await self.emit_conversation_event(
+                broadcast, "error", {"task": task, "error": str(e)}
+            )
+            return
+        await self.reply(broadcast, result)
 
     def _register_system_endpoints(self) -> None:
         @self.endpoint("_synapse.ping", publish=False)
@@ -718,6 +866,15 @@ class Node:
             if remembered:
                 await self._send_conversation_event(incoming)
             return {"ok": True, "stored": remembered}
+
+        @self.endpoint("_synapse.conversation.sync", publish=False)
+        async def conversation_sync(conversation_id: str, since: float = 0.0) -> dict[str, Any]:
+            events = self.conversation_log.events(conversation_id, since=since)
+            return {"events": [event.to_dict() for event in events]}
+
+        @self.endpoint("_synapse.conversation.list", publish=False)
+        async def conversation_list() -> list[str]:
+            return self.conversation_log.conversations()
 
         @self.endpoint("_synapse.join", publish=False)
         async def join(peer: dict) -> dict:

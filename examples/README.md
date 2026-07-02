@@ -58,5 +58,6 @@ Most agent examples publish an `agent-card` artifact and use shared conversation
 | [`pydantic_ai_team`](./pydantic_ai_team) | Pydantic AI agents behind Synapse nodes. |
 | [`periodic_tasks`](./periodic_tasks) | Interval, cron, and solar jobs in a garden-caretaker node. |
 | [`stock_trading_team`](./stock_trading_team) | Analyst/news/trader swarm with a dumb paper exchange API and market-hours periodic scans. |
+| [`coding_team`](./coding_team) | An architect and coder agents on different models: task offers, claims, grants, progress, and compacted task conversations via `synapse_p2p.teams`. |
 
 Each folder has its own README with exact run commands.
