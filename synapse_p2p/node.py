@@ -93,6 +93,7 @@ class Node:
         conversation_log: BaseConversationLog | None = None,
         conversation_max_events: int | None = None,
         conversation_keep_recent: int = 25,
+        conversation_retention: float | None = None,
         summarizer: Summarizer | None = None,
     ) -> None:
         self.bind = bind
@@ -118,6 +119,7 @@ class Node:
         self.conversation_log = conversation_log or MemoryConversationLog()
         self.conversation_max_events = conversation_max_events
         self.conversation_keep_recent = conversation_keep_recent
+        self.conversation_retention = conversation_retention
         self._summarizer: Summarizer = summarizer or default_summarizer
         self._compacting: set[str] = set()
         self._background: set[asyncio.Task] = set()
@@ -488,7 +490,24 @@ class Node:
             self.peers.pop(peer.id, None)
             self._emit_lifecycle("peer.offline", peer)
 
+    async def _reap_conversations(self) -> None:
+        assert self.conversation_retention is not None
+        cutoff = time.time() - self.conversation_retention
+        for conversation_id in self.conversation_log.conversations():
+            if self.conversation_log.last_activity(conversation_id) < cutoff:
+                self.conversation_log.prune(conversation_id)
+                self.broadcast_replies.pop(conversation_id, None)
+                self._emit_lifecycle("conversation.pruned", conversation_id)
+
     def _register_lifecycle_tasks(self) -> None:
+        if self.conversation_retention is not None:
+            self.periodic_executor.add_task(
+                PeriodicTask(
+                    name="_synapse.reap_conversations",
+                    callable=self._reap_conversations,
+                    schedule=every(seconds=min(60.0, max(0.05, self.conversation_retention / 4))),
+                )
+            )
         if self.heartbeat_interval is None:
             return
         self.periodic_executor.add_task(
@@ -582,6 +601,13 @@ class Node:
 
     def _remember_conversation_event(self, event: ConversationEvent) -> bool:
         self._validate_peer_membership(event.peer)
+        if (
+            self.conversation_retention is not None
+            and event.created_at < time.time() - self.conversation_retention
+        ):
+            # Too old to store: also stops gossip from resurrecting a pruned
+            # conversation, since anything pruned is by definition this stale.
+            return False
         if not self.conversation_log.append(event):
             return False
         self.add_peer(event.peer)

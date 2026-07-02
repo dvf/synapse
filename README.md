@@ -190,6 +190,8 @@ async def summarize(events: list[ConversationEvent]) -> str:
 
 Compaction is local. Each node compresses its own copy of the shared log, and gossip can't resurrect compacted events. There's also `node.compact_conversation(...)` if you'd rather do it by hand.
 
+For nodes that run indefinitely, set `conversation_retention` (seconds) and whole conversations get pruned after going quiet for that long. Events older than the retention window are refused outright, so a pruned conversation can't leak back in through gossip. With retention, compaction, and a SQLite log, a node can run forever on bounded memory and disk.
+
 ## Teams
 
 `synapse_p2p.teams` is an optional task layer built on conversation events. A `Team` offers work, `Worker`s claim tasks that match their capabilities, and the team grants each task to the first claimant. Exactly one worker runs each task.
@@ -213,6 +215,15 @@ async def implement(assignment: Assignment) -> dict:
 ```
 
 Each task is one conversation: `task.offer`, `task.claim`, `task.grant`, `task.progress`, then `task.done` or `task.failed`. Every peer can watch it, late joiners can sync it, and long threads compact like anything else. See [`examples/coding_team`](./examples/coding_team) for an architect on one model reviewing work from coders on another.
+
+The layer is built for long-running work:
+
+- Progress events renew a task's **lease** (`Team(lease=300)`). Workers heartbeat automatically while a handler runs, so a task can take hours without any manual progress calls.
+- If an assignee dies or goes quiet past its lease, the team re-offers the task. Unclaimed offers are re-announced too, so a worker that joins late still finds existing work. Cap retries with `max_attempts`.
+- A team backed by a SQLite log can rebuild its task table after a restart with `team.restore()` — finished tasks come back with their results, unfinished ones get re-offered.
+- Set `task_retention` to drop finished tasks after a while, so a team that offers work forever doesn't grow without bound.
+
+Delivery is at-least-once: a partitioned-but-alive worker can mean a task runs twice. The first `task.done` wins.
 
 ## Periodic tasks
 

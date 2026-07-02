@@ -199,3 +199,84 @@ async def test_late_joiner_syncs_conversation_from_peer():
     finally:
         await late.stop()
         await origin.stop()
+
+
+@pytest.mark.asyncio
+async def test_default_summarizer_output_stays_bounded():
+    events = [
+        ConversationEvent(
+            conversation_id="conv",
+            event_id=f"e{index}",
+            kind="reply",
+            peer=Peer(id=f"p{index}", address="127.0.0.1", port=1, name=f"peer-{index}"),
+            payload={"result": "x" * 500},
+        )
+        for index in range(200)
+    ]
+    events.append(
+        ConversationEvent(
+            conversation_id="conv",
+            event_id="old-summary",
+            kind="summary",
+            peer=events[0].peer,
+            payload={"summary": "y" * 50_000},
+        )
+    )
+    text = await default_summarizer(events)
+    assert len(text) < 10_000
+
+
+@pytest.mark.parametrize("backend", ["memory", "sqlite"])
+def test_log_prune_removes_events_and_forgets_ids(backend, tmp_path):
+    log = (
+        MemoryConversationLog()
+        if backend == "memory"
+        else SqliteConversationLog(tmp_path / "log.db")
+    )
+    event = make_event("a", created_at=123.0)
+    log.append(event)
+    assert log.last_activity("conv") == 123.0
+
+    log.prune("conv")
+
+    assert log.count("conv") == 0
+    assert log.conversations() == []
+    assert log.seen("a") is False
+    assert log.append(event) is True  # a pruned id can be stored again
+    log.close()
+
+
+@pytest.mark.asyncio
+async def test_node_reaps_inactive_conversations_and_rejects_stale_events():
+    import time as time_module
+
+    node = Node(
+        name="reaper",
+        swarm="foo.electron.network",
+        bind="127.0.0.1",
+        heartbeat_interval=None,
+        conversation_retention=0.3,
+    )
+    await node.start()
+
+    try:
+        broadcast = await node.broadcast("team.question", "anyone?")
+        node.broadcast_replies[broadcast.nonce] = []
+        assert node.conversation(broadcast)
+
+        for _ in range(100):
+            if not node.conversation(broadcast):
+                break
+            await asyncio.sleep(0.02)
+
+        assert node.conversation(broadcast) == []
+        assert broadcast.nonce not in node.broadcast_replies
+
+        # Events older than the retention window are refused outright, so
+        # gossip cannot resurrect a pruned conversation.
+        stale = make_event("stale", created_at=time_module.time() - 60)
+        stale.peer.swarm = node.swarm
+        stale.peer.team = node.team
+        assert node._remember_conversation_event(stale) is False
+    finally:
+        await node.stop()
